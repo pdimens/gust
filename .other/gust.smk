@@ -2,7 +2,7 @@ import os
 import glob
 from pathlib import Path
 configfile: "config.yml"
-ref_genome = "genomes/" + config["reference_genome"]
+ref_genome = config["reference_genome"]
 fragsize = str(config["fragment_size"]) + "bp_fragments/"
 
 def assemblynames():
@@ -36,31 +36,39 @@ rule fragment_assemblies:
     threads: 2
     shell: "seqkit sliding -j {threads} -s 1 -W {params} {input} -o {output}"
 
+rule isolate_reference:
+    input: "genomes/" + ref_genome
+    output: "genomes/reference/" + ref_genome
+    message: "Symlinking {input} to {output}"
+    threads: 1
+    shell: "ln -sr {input} {output}"
+
 rule index_reference_bwa:
-    input: ref_genome
+    input: "genomes/reference/" + ref_genome
     output: 
-        idx1 = ref_genome + ".0123",
-        idxamb = ref_genome + ".amb",
-        idxann = ref_genome +  ".ann",
-        idxbwt = ref_genome + ".bwt.2bit.64",
-        idxpac = ref_genome + ".pac"
-    log: ref_genome + ".idx.log"
+        idx1 = "genomes/reference/" + ref_genome + ".0123",
+        idxamb = "genomes/reference/" + ref_genome + ".amb",
+        idxann = "genomes/reference/" + ref_genome +  ".ann",
+        idxbwt = "genomes/reference/" + ref_genome + ".bwt.2bit.64",
+        idxpac = "genomes/reference/" + ref_genome + ".pac"
+    log: "genomes/reference/" + ref_genome + ".idx.log"
     message: "Indexing {input} with bwa-mem2"
     shell:
         """
-        bwa-mem2 index {input} 2> {log}
+        bwa-mem2 index {input} > {log} 2>&1
         """
 
 rule map_to_reference:
     input: 
-        reference = ref_genome,
-        idx1 = ref_genome + ".0123",
-        idxamb = ref_genome + ".amb",
-        idxann = ref_genome +  ".ann",
-        idxbwt = ref_genome + ".bwt.2bit.64",
-        idxpac = ref_genome + ".pac",
+        reference = "genomes/reference/" + ref_genome,
+        idx1 = "genomes/reference/" + ref_genome + ".0123",
+        idxamb = "genomes/reference/" + ref_genome + ".amb",
+        idxann = "genomes/reference/" + ref_genome +  ".ann",
+        idxbwt = "genomes/reference/" + ref_genome + ".bwt.2bit.64",
+        idxpac = "genomes/reference/" + ref_genome + ".pac",
         query = fragsize + "genomes_fragmented/{assembly}.frag.fq.gz"
     output: temp(fragsize + "mapping/individual/{assembly}.raw.bam")
+    log: fragsize + "mapping/individual/logs/{assembly}.log"
     message: "Using bwa-mem2 to map {input.query} onto {input.reference}"
     threads: 30
     params: config["bwa_parameters"]
@@ -73,7 +81,7 @@ rule map_to_reference:
             MAPT=$(awk "BEGIN {{print {threads}-int({threads}/3)}}")
             SAMT=$(awk "BEGIN {{print int({threads}/3)}}")
         fi
-        bwa-mem2 mem -t $MAPT {params} -a {input.reference} {input.query} | samtools view -@$SAMT -F 0x04 -bS - > {output}
+        bwa-mem2 mem -t $MAPT {params} -a {input.reference} {input.query} 2> {log} | samtools view -@$SAMT -F 0x04 -bS - > {output}
         """
 
 rule sort_index_alignments:
@@ -121,8 +129,8 @@ rule create_popmap:
         """
 
 rule index_reference_samtools:
-    input: ref_genome
-    output: ref_genome + ".fai"
+    input: "genomes/reference/" + ref_genome
+    output: "genomes/reference/" + ref_genome + ".fai"
     message: "Indexing {input} with samtools"
     shell:
         """
@@ -133,7 +141,7 @@ rule split_regions:
     input:
         bam = fragsize + "mapping/alignments.bam",
         bai = fragsize + "mapping/alignments.bam.bai",
-        fai =  ref_genome + ".fai"
+        fai =  "genomes/reference/" + ref_genome + ".fai"
     output: fragsize + "snp_discovery/reference.5kb.regions"
     message: "Splitting {input.fai} into 5kb regions for variant calling parallelization"
     threads: 1
@@ -146,7 +154,7 @@ rule split_regions:
 rule call_variants:
     input:
         bam = fragsize + "mapping/alignments.bam",
-        genome = ref_genome,
+        genome = "genomes/reference/" + ref_genome,
         regions = fragsize + "snp_discovery/reference.5kb.regions",
         populations = fragsize + "populations.map"
     output: fragsize + "variants/snps.raw.bcf"
@@ -163,3 +171,4 @@ rule call_variants:
             | bcftools view -Ob - > {output}
         #freebayes-parallel {input.regions} {threads} -f {input.genome} {input.bam} -C 3 --min-coverage 5 --standard-filters {params} | bcftools view -Ob - > {output}
         """
+
