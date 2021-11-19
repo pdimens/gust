@@ -1,10 +1,10 @@
 import glob
 configfile: "config.yaml"
 ref_genome = "genomes/" + config["reference_genome"]
+fragsize + = str(config["fragment_size"]) + "bp_fragments/"
 
 rule all:
     input: "variants/snps.raw.bcf"
-
 
 rule fastq_convert:
     input:  "genomes/{assembly}.fasta"
@@ -15,7 +15,7 @@ rule fastq_convert:
 
 rule fragment_assemblies:
     input: "genomes/fastq/{assembly}.fq"
-    output: "genomes_fragmented/{assembly}.frag.fq.gz"
+    output: fragsize + "genomes_fragmented/{assembly}.frag.fq.gz"
     params: config["fragment_size"]
     message: "Using seqkit to create {params}bp sliding window fragments from {input}"
     threads: 2
@@ -31,24 +31,28 @@ rule map_to_reference:
     input: 
         reference = ref_genome,
         refindex = ref_genome + ".fai",
-        query = "genomes_fragmented/{assembly}.frag.fq.gz"
-    output: temp("mapping/individual/{assembly}.raw.bam")
+        query = fragsize + "genomes_fragmented/{assembly}.frag.fq.gz"
+    output: temp(fragsize + "mapping/individual/{assembly}.raw.bam")
     message: "Using bwa-mem2 to map {input.query} onto {input.reference}"
-    threads: 20
-    params:
-        mapthreads = {threads} - ({threads} // 3),
-        samthreads = {threads} // 3,
-        extraparams = config["bwa_parameters"]
+    threads: 30
+    params: config["bwa_parameters"]
     shell:
         """
-        bwa-mem2 mem -t {params.mapthreads} {params.extraparams} -a {input.reference} {query} | samtools view -@{params.samthreads} -F 0x04 -bS - > {output}
+        if [ "{threads}" = "2" ]; then
+            MAPT=1
+            SAMT=1
+        else
+            MAPT=$(awk "BEGIN {{print {threads}-int({threads}/3)}}")
+            SAMT=$(awk "BEGIN {{print int({threads}/3)}}")
+        fi
+        bwa-mem2 mem -t $MAPT {params} -a {input.reference} {query} | samtools view -@$SAMT -F 0x04 -bS - > {output}
         """
 
-rule process_bamfiles:
-    input: "mapping/{assembly}.raw.bam"
+rule sort_index_alignments:
+    input: fragsize + "mapping/{assembly}.raw.bam"
     output: 
-        bam = "mapping/individual/{assembly}.bam",
-        idx = "mapping/individual/{assembly}.bam.bai"
+        bam = fragsize + "mapping/individual/{assembly}.bam",
+        idx = fragsize + "mapping/individual/{assembly}.bam.bai"
     message: "Using samtools to sort and index {input}"
     threads: 5
     shell:
@@ -58,39 +62,40 @@ rule process_bamfiles:
         """
 
 rule merge_alignments:
-    input: glob.glob('mapping/individual/*.bam')
+    input: glob.glob(fragsize + 'mapping/individual/*.bam')
     output: 
-        bamlist= "mapping/individual/.bamlist",
-        bam = "mapping/alignments.bam"
+        bamlist= fragsize + "mapping/individual/.bamlist",
+        bam = fragsize + "mapping/alignments.bam"
     message: "Merging all of the alignments of {output.bamlist} into {output.bam}"
-    threads: 20
+    threads: 30
+    params: fragsize
     shell: 
         """
-        ls mapping/individual/*.bam > {output.bamlist}
+        ls {params}mapping/individual/*.bam > {output.bamlist}
         samtools merge -@{threads} -b {output.bamlist} -f {output} &>/dev/null
         """
 
 rule index_alignments:
-    input: "mapping/alignments.bam"
-    output: "mapping/alignments.bam.bai"
+    input: fragsize + "mapping/alignments.bam"
+    output: fragsize + "mapping/alignments.bam.bai"
     message: "Indexing {input}"
     threads: 1
     shell: "samtools index {input}"
 
 rule create_popmap:
-    input: "mapping/individual/.bamlist"
-    output: "misc/populations.map"
+    input: fragsize + "mapping/individual/.bamlist"
+    output: fragsize + "populations.map"
     message: "Creating population mapping file {output} based on genome names"
     threads: 1
     shell: 
         """
-        sed 's/.bam//g' {input} | sed "s/.*\///" | paste -d' ' - <(cut -d'.' -f1 {input})
+        sed 's/.bam//g' {input} | sed "s/.*\///" | paste -d' ' - <(cut -d'.' -f1 {input}) > {output}
         """
 
 rule split_regions:
     input:
-        bam = "mapping/alignments.bam",
-        bai = "mapping/alignments.bai",
+        bam = fragsize + "mapping/alignments.bam",
+        bai = fragsize + "mapping/alignments.bai",
         fai =  ref_genome + ".fai"
     output: "snp_discovery/reference.5kb.regions"
     message: "Splitting {input.fai} into 5kb regions for variant calling parallelization"
@@ -103,13 +108,13 @@ rule split_regions:
 
 rule call_variants:
     input:
-        bam = "mapping/alignments.bam",
+        bam = fragsize + "mapping/alignments.bam",
         genome = ref_genome,
-        regions = "snp_discovery/reference.5kb.regions",
-        populations = "misc/populations.map"
-    output: "variants/snps.raw.bcf"
+        regions = fragsize + "snp_discovery/reference.5kb.regions",
+        populations = fragsize + "populations.map"
+    output: fragsize + "variants/snps.raw.bcf"
     message: "Calling variants with freebayes"
-    threads: 20
+    threads: 30
     params: config["freebayes_parameters"]
     shell: 
         """

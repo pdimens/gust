@@ -1,0 +1,71 @@
+#! /usr/bin/env bash
+
+if [[ -z "$1" ]]; then
+cat <<EOF
+
+gust an easy breezy snp-based whole genome phylogenetic pipeline
+repository: https://github.com/pdimens/gust
+
+numthreads are mandatory (>1)
+configFile is optional and defaults to config.yml
+
+[usage]:   gust numThreads configFile
+[example]: gust 25 config.yml
+
+EOF
+  exit 1
+fi
+
+if [ "$1" = "1" ]; then
+    echo "Error: Use >1 threads"
+    echo "gust does not have a default value for threads, please set at least 2 threads"
+    echo "more threads = faster runtime with minimal memory increase"
+    exit 1
+fi
+
+if [[ -z "$2" ]]; then
+    if [ ! -f config.yaml ]; then
+        echo "Error: No config.yml found"
+        echo "The file 'config.yml' is required to run gust but wasn't found. It"
+        echo "was created for you, please edit it to point to the reference genome"
+        echo "and run gust again. you can also add extra parameters before running"
+        cat <<EOF >config.yml
+#=======================================================#
+#                     gust config file                  #
+#  most of this file is comments, which you can delete  #
+#=======================================================#
+
+# size of the sliding window genome fragments?
+fragment_size: 50
+# the default is 50 (also used by REALPHY),
+# but values of 50-300+ should be ok (use your judgement)
+# note: bwa isn't good at mapping really long sequences
+
+# what is the name of reference genome in the genomes/ dir?
+reference_genome: ""
+
+# extra bwa-mem parameters you would like to add?
+bwa_parameters: ""
+# gust uses only the -a flag
+# default kmer size (-k) is 19
+
+# extra freebayes parameters you would like to add?
+freebayes_parameters: ""
+# gust uses -C 3 --min-coverage 5 --standard-filter
+EOF
+        exit 1
+    fi
+    CONF=config.yml
+else
+    CONF=$2
+fi
+
+if [ ! -d "genomes" ]; then
+    echo "Error: 'genomes' folder not found"
+    echo "The 'genomes' folder is required for gust and must contain the genome"
+    echo "assemblies you want to include in the analyses. One has been created"
+    echo "in the project directory, please add your data to it."
+    exit 1
+fi
+
+snakemake --core $1 --snakefile .other/gust.smk --configfile $CONF --directory .
