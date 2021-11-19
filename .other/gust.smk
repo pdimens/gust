@@ -44,10 +44,11 @@ rule index_reference_bwa:
         idxann = ref_genome +  ".ann",
         idxbwt = ref_genome + ".bwt.2bit.64",
         idxpac = ref_genome + ".pac"
+    log: ref_genome + ".idx.log"
     message: "Indexing {input} with bwa-mem2"
     shell:
         """
-        bwa-mem2 index {input}
+        bwa-mem2 index {input} 2> {log}
         """
 
 rule map_to_reference:
@@ -72,7 +73,7 @@ rule map_to_reference:
             MAPT=$(awk "BEGIN {{print {threads}-int({threads}/3)}}")
             SAMT=$(awk "BEGIN {{print int({threads}/3)}}")
         fi
-        bwa-mem2 mem -t $MAPT {params} -a {input.reference} {query} | samtools view -@$SAMT -F 0x04 -bS - > {output}
+        bwa-mem2 mem -t $MAPT {params} -a {input.reference} {input.query} | samtools view -@$SAMT -F 0x04 -bS - > {output}
         """
 
 rule sort_index_alignments:
