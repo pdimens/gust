@@ -7,7 +7,7 @@ An easy breezy snp-based whole genome phylogenetic pipeline 🌪️
 2. A `git` installation
 3. Linux system (macOS probably works too, untested)
 
-### 1. Clone this repositroy
+### 1. Clone this repository
 Everything you'll need is right here in this repository, which will also be your project directory. You'll need to clone
 this repository for every new project (it's very lightweight). Feel free to rename this folder `gust` to whatever is relevant for your project.
 ```bash
