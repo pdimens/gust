@@ -1,6 +1,7 @@
 #! /usr/bin/env bash
 
 if [[ -z "$1" ]]; then
+mkdir -p genomes
 cat <<EOF
 
 gust an easy breezy snp-based whole genome phylogenetic pipeline
