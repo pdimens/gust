@@ -1,4 +1,4 @@
-![gust logo](misc/gust.svg)
+![gust logo](.other/gust.svg)
 An easy breezy snp-based whole genome phylogenetic pipeline
 
 ## Installation
@@ -20,7 +20,7 @@ Feel free to rename this folder whatever is relevant for your project.
 Use the provided `gust.yaml` conda configuration file to create a new conda environment
 ```bash
 cd gust   # enter the gust directory
-conda env create -f misc/gust.yaml
+conda env create -f .other/gust.yaml
 ```
 This will create a new environment called `gust`, which can be activated by
 ```bash
@@ -28,9 +28,28 @@ conda activate gust
 ```
 
 ## Usage
+### Preparation
+It's minimal, I swear.
 1. Put all of the genomes you want included in analysis in the `genomes` folder
 2. Specify the name of the genome you want to use as the reference in `config.yml`
     - the genome should be in the `genomes/` folder
     - use **just** the name, not the full path
     - e.g. `"bostauros.fasta"` ✅  vs `"genomes/bostauros.fasta"` ❌
 3. Specify any other additional parameters in `config.yml` if you want them (bwa kmer size, fragment size, etc.)
+
+### Running
+If you call `gust` without arguments you will see help text, otherwise:
+```bash
+./gust numThreads configFile
+```
+where `numThreads` is the number of threads to use (>1, no default) and
+`configFile` is the name of the configuration file (optional, defaults to `config.yml`).
+#### examples
+You want to run `gust` with 25 threads using the configuration file `config.yml`
+```bash
+./gust 25
+```
+You want to run `gust` with 10 threads using the configuration file `frag250.yml`
+```bash
+./gust 10 frag250.yml
+```
