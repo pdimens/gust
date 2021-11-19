@@ -1,22 +1,20 @@
 ![gust logo](.other/gust.svg)
-An easy breezy snp-based whole genome phylogenetic pipeline
+An easy breezy snp-based whole genome phylogenetic pipeline 🌪️
 
 ## Installation
-### 0. Pre-requisites
+### Pre-requisites
 1. Any kind of conda environment (like `anaconda`, `miniconda`, `mamba` (recommended!), `micromamba`)
 2. A `git` installation
 3. Linux system (macOS probably works too, untested)
 
 ### 1. Clone this repositroy
-Everything you'll need is right here in this repository, which will also be your project directory. You can clone
-this repository for every new project (it's very lightweight)
+Everything you'll need is right here in this repository, which will also be your project directory. You'll need to clone
+this repository for every new project (it's very lightweight). Feel free to rename this folder `gust` to whatever is relevant for your project.
 ```bash
 git clone https://github.com/pdimens/gust.git
 ```
-Feel free to rename this folder whatever is relevant for your project.
-
 ### 2. Initiate the `gust` conda environment 
-**if you already have a `gust` conda environment, skip this step**
+🌪️ **if you already have a `gust` conda environment, skip this step** 🌪️
 
 **note**: replace `conda` with the appropriate environment framework, (`mamba`, `micromamba`, etc.)
 
@@ -25,7 +23,7 @@ Use the provided `gust.yaml` conda configuration file to create a new conda envi
 cd gust   # enter the gust directory
 conda env create -f .other/gust_env.yaml
 ```
-This will create a new environment called `gust`, which can be activated by
+This will create a new environment called `gust` containing all the software dependencies. Activate the environment with:
 ```bash
 conda activate gust
 ```
@@ -34,6 +32,8 @@ conda activate gust
 ### Preparation
 It's minimal, I swear.
 1. Put all of the genomes you want included in analysis in the `genomes` folder
+    - **make sure the files end with `.fasta`**
+    - I haven't figured out how to make snakemake more flexible with this (PR's welcome!)
 2. Specify the name of the genome you want to use as the reference in `config.yml`
     - the genome should be in the `genomes/` folder
     - use **just** the name, not the full path
