@@ -23,7 +23,7 @@ Feel free to rename this folder whatever is relevant for your project.
 Use the provided `gust.yaml` conda configuration file to create a new conda environment
 ```bash
 cd gust   # enter the gust directory
-conda env create -f .other/gust.yaml
+conda env create -f .other/gust_env.yaml
 ```
 This will create a new environment called `gust`, which can be activated by
 ```bash

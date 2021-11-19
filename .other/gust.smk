@@ -4,7 +4,7 @@ ref_genome = "genomes/" + config["reference_genome"]
 fragsize + = str(config["fragment_size"]) + "bp_fragments/"
 
 rule all:
-    input: "variants/snps.raw.bcf"
+    input: fragsize + "variants/snps.raw.bcf"
 
 rule fastq_convert:
     input:  "genomes/{assembly}.{ext}"
@@ -121,7 +121,7 @@ rule call_variants:
     shell: 
         """
         cat {input.regions} | parallel -k --eta -j {threads} freebayes -f {input.genome} {input.bam} \
-            -C 3 --min-coverage 5 --standard-filters --populations populations.map --region {{}} \
+            -C 2 --min-coverage 5 --standard-filters --populations populations.map --region {{}} \
             | vcffirstheader \
             | vcfstreamsort -w 1000 \
             | vcfuniq \
