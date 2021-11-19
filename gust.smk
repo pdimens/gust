@@ -105,7 +105,6 @@ rule call_variants:
     input:
         bam = "mapping/alignments.bam",
         genome = ref_genome,
-        fai = ref_genome + ".fai",
         regions = "snp_discovery/reference.5kb.regions",
         populations = "misc/populations.map"
     output: "variants/snps.raw.bcf"
@@ -114,5 +113,11 @@ rule call_variants:
     params: config["freebayes_parameters"]
     shell: 
         """
-        freebayes-parallel {input.regions} {threads} -f {input.genome} {input.bam} -C 3 --min-coverage 5 --standard-filters {params} | bcftools view -Ob - > {output}
+        cat {input.regions} | parallel -k --eta -j {threads} freebayes -f {input.genome} {input.bam} \
+            -C 3 --min-coverage 5 --standard-filters --populations populations.map --region {{}} \
+            | vcffirstheader \
+            | vcfstreamsort -w 1000 \
+            | vcfuniq \
+            | bcftools view -Ob - > {output}
+        #freebayes-parallel {input.regions} {threads} -f {input.genome} {input.bam} -C 3 --min-coverage 5 --standard-filters {params} | bcftools view -Ob - > {output}
         """
