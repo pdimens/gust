@@ -1,0 +1,20 @@
+#=======================================================#
+#                     gust config file                  #
+#  most of this file is comments, which you can delete  #
+#=======================================================#
+
+# size of the sliding window genome fragments?
+fragment_size: 50
+# the default is 50 (also used by REALPHY)
+# note: bwa isn't good at mapping really long sequences
+
+# what is the name of reference genome in the genomes/ dir?
+reference_genome: ""
+
+# extra bwa-mem parameters you would like to add?
+bwa_parameters: ""
+# gust uses only the -a flag
+
+# extra freebayes parameters you would like to add?
+freebayes_parameters: ""
+# gust uses -C 3 --min-coverage 5 --standard-filter
