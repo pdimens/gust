@@ -1,4 +1,4 @@
-![gust logo](.other/gust.svg)
+[![gust logo](.other/gust.svg)](https://github.com/pdimens/gust/blob/main/README.md#installation)
 An easy breezy snp-based whole genome phylogenetic pipeline 🌪️
 
 ## Installation
