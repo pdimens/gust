@@ -7,8 +7,10 @@ rule all:
     input: "variants/snps.raw.bcf"
 
 rule fastq_convert:
-    input:  "genomes/{assembly}.fasta"
+    input:  "genomes/{assembly}.{ext}"
     output: "genomes/fastq/{assembly}.fq"
+    wildcard_constraints:
+        ext="(fasta|fasta.gz|fa|fa.gz|fn|fn.gz|frn|frn.gz|faa|faa.gz|ffn|ffn.gz)$"
     message: "Using seqtk to convert {input} to FASTQ format with dummy quality score J"
     threads: 1
     shell: "seqtk seq -F 'J' {input} > {output}"
