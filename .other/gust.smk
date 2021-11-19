@@ -1,17 +1,30 @@
+import os
 import glob
-configfile: "config.yaml"
+from pathlib import Path
+configfile: "config.yml"
 ref_genome = "genomes/" + config["reference_genome"]
-fragsize + = str(config["fragment_size"]) + "bp_fragments/"
+fragsize = str(config["fragment_size"]) + "bp_fragments/"
+
+def assemblynames():
+    names = glob.glob("genomes/*.fasta")
+    gzstrippednames = []
+    for i in names:
+        if i.endswith(".gz"):
+            gzstrippednames.append(os.path.splitext(i)[0])
+        else:
+            gzstrippednames.append(i)
+    return [Path(i).stem for i in gzstrippednames]
+assemblies = assemblynames()
+
 
 rule all:
-    input: fragsize + "variants/snps.raw.bcf"
+    input: 
+        variants = fragsize + "variants/snps.raw.bcf"
 
 rule fastq_convert:
-    input:  "genomes/{assembly}.{ext}"
+    input:  "genomes/{assembly}.fasta"
     output: "genomes/fastq/{assembly}.fq"
-    wildcard_constraints:
-        ext="(fasta|fasta.gz|fa|fa.gz|fn|fn.gz|frn|frn.gz|faa|faa.gz|ffn|ffn.gz)$"
-    message: "Using seqtk to convert {input} to FASTQ format with dummy quality score J"
+    message: "Using seqtk to convert {input} to FASTQ with quality score J"
     threads: 1
     shell: "seqtk seq -F 'J' {input} > {output}"
 
@@ -23,16 +36,28 @@ rule fragment_assemblies:
     threads: 2
     shell: "seqkit sliding -j {threads} -s 1 -W {params} {input} -o {output}"
 
-rule index_reference:
+rule index_reference_bwa:
     input: ref_genome
-    output: ref_genome + "fai"
-    message: "Indexing {input}"
-    shell: "bwa-mem2 index {input}"
+    output: 
+        idx1 = ref_genome + ".0123",
+        idxamb = ref_genome + ".amb",
+        idxann = ref_genome +  ".ann",
+        idxbwt = ref_genome + ".bwt.2bit.64",
+        idxpac = ref_genome + ".pac"
+    message: "Indexing {input} with bwa-mem2"
+    shell:
+        """
+        bwa-mem2 index {input}
+        """
 
 rule map_to_reference:
     input: 
         reference = ref_genome,
-        refindex = ref_genome + ".fai",
+        idx1 = ref_genome + ".0123",
+        idxamb = ref_genome + ".amb",
+        idxann = ref_genome +  ".ann",
+        idxbwt = ref_genome + ".bwt.2bit.64",
+        idxpac = ref_genome + ".pac",
         query = fragsize + "genomes_fragmented/{assembly}.frag.fq.gz"
     output: temp(fragsize + "mapping/individual/{assembly}.raw.bam")
     message: "Using bwa-mem2 to map {input.query} onto {input.reference}"
@@ -51,7 +76,7 @@ rule map_to_reference:
         """
 
 rule sort_index_alignments:
-    input: fragsize + "mapping/{assembly}.raw.bam"
+    input: fragsize + "mapping/individual/{assembly}.raw.bam"
     output: 
         bam = fragsize + "mapping/individual/{assembly}.bam",
         idx = fragsize + "mapping/individual/{assembly}.bam.bai"
@@ -64,7 +89,7 @@ rule sort_index_alignments:
         """
 
 rule merge_alignments:
-    input: glob.glob(fragsize + 'mapping/individual/*.bam')
+    input: expand(fragsize + "mapping/individual/{assembly}.bam", assembly = assemblies)
     output: 
         bamlist= fragsize + "mapping/individual/.bamlist",
         bam = fragsize + "mapping/alignments.bam"
@@ -80,7 +105,7 @@ rule merge_alignments:
 rule index_alignments:
     input: fragsize + "mapping/alignments.bam"
     output: fragsize + "mapping/alignments.bam.bai"
-    message: "Indexing {input}"
+    message: "Indexing {input} with samtools"
     threads: 1
     shell: "samtools index {input}"
 
@@ -94,12 +119,21 @@ rule create_popmap:
         sed 's/.bam//g' {input} | sed "s/.*\///" | paste -d' ' - <(cut -d'.' -f1 {input}) > {output}
         """
 
+rule index_reference_samtools:
+    input: ref_genome
+    output: ref_genome + ".fai"
+    message: "Indexing {input} with samtools"
+    shell:
+        """
+        samtools faidx {input} > {output}
+        """
+
 rule split_regions:
     input:
         bam = fragsize + "mapping/alignments.bam",
-        bai = fragsize + "mapping/alignments.bai",
+        bai = fragsize + "mapping/alignments.bam.bai",
         fai =  ref_genome + ".fai"
-    output: "snp_discovery/reference.5kb.regions"
+    output: fragsize + "snp_discovery/reference.5kb.regions"
     message: "Splitting {input.fai} into 5kb regions for variant calling parallelization"
     threads: 1
     shell:
