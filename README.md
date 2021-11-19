@@ -16,10 +16,9 @@ git clone https://github.com/pdimens/gust.git
 Feel free to rename this folder whatever is relevant for your project.
 
 ### 2. Initiate the `gust` conda environment 
-**note**: replace `conda` with the appropriate environment framework, (`mamba`, `micromamba`, etc.)
-
 **if you already have a `gust` conda environment, skip this step**
 
+**note**: replace `conda` with the appropriate environment framework, (`mamba`, `micromamba`, etc.)
 
 Use the provided `gust.yaml` conda configuration file to create a new conda environment
 ```bash
