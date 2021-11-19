@@ -1,4 +1,6 @@
-
+import glob
+configfile: "config.yaml"
+ref_genome = config["reference_genome"]
 
 rule all:
     input: "variants/snps.raw.bcf"
@@ -19,15 +21,15 @@ rule fragment_assemblies:
     shell: "seqkit sliding -j {threads} -s 1 -W 50 {input} -o {output}"
 
 rule index_reference:
-    input: "some assembly"
-    output: "some assembly.fai"
+    input: ref_genome
+    output: ref_genome + "fai"
     message: "Indexing {input}"
     shell: "bwa-mem2 index {input}"
 
 rule map_to_reference:
     input: 
-        reference = "some assembly",
-        refindex = "some_assembly.fai",
+        reference = ref_genome,
+        refindex = ref_genome + ".fai",
         query = "genomes_fragmented/{assembly}.frag.fq.gz"
     output: temp("mapping/individual/{assembly}.raw.bam")
     message: "Using bwa-mem2 to map {input.query} onto {input.reference}"
@@ -54,11 +56,11 @@ rule process_bamfiles:
         """
 
 rule merge_alignments:
-    input: expand("mapping/individual/{assembly}.bam", assembly =  [1,2] )
+    input: glob.glob('mapping/individual/*.bam')
     output: 
         bamlist= "mapping/individual/.bamlist",
         bam = "mapping/alignments.bam"
-    message: "Merging all the  alignments"
+    message: "Merging all of the alignments of {output.bamlist} into {output.bam}"
     threads: 20
     shell: 
         """
@@ -76,6 +78,8 @@ rule index_alignments:
 rule create_popmap:
     input: "mapping/individual/.bamlist"
     output: "misc/populations.map"
+    message: "Creating population mapping file {output} based on genome names"
+    threads: 1
     shell: 
         """
         sed 's/.bam//g' {input} | sed "s/.*\///" | paste -d' ' - <(cut -d'.' -f1 {input})
@@ -85,7 +89,7 @@ rule assess_coverage:
     input:
         bam = "mapping/alignments.bam",
         bai = "mapping/alignments.bai",
-        fai = "some_assembly.fai"
+        fai =  ref_genome + ".fai"
     output: "snp_discovery/reference.5kb.regions"
     message: "Splitting {input.fai} into 5kb regions for variant calling parallelization"
     threads: 1
@@ -98,8 +102,8 @@ rule assess_coverage:
 rule call_variants:
     input:
         bam = "mapping/alignments.bam",
-        genome = "some_assembly.fasta",
-        fai = "some_assembly.fai",
+        genome = ref_genome,
+        fai = ref_genome + ".fai",
         regions = "snp_discovery/reference.5kb.regions",
         populations = "misc/populations.map"
     output: "variants/snps.raw.bcf"
