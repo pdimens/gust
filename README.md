@@ -48,11 +48,11 @@ If you call `gust` without arguments you will see help text, otherwise:
 where `numThreads` is the number of threads to use (>1, no default) and
 `configFile` is the name of the configuration file (optional, defaults to `config.yml`).
 #### examples
-You want to run `gust` with 25 threads using the configuration file `config.yml`
+Running `gust` with 25 threads using the configuration file `config.yml`
 ```bash
 ./gust 25
 ```
-You want to run `gust` with 10 threads using the configuration file `frag250.yml`
+Running `gust` with 10 threads using the configuration file `frag250.yml`
 ```bash
 ./gust 10 frag250.yml
 ```
