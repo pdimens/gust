@@ -1,6 +1,6 @@
 import glob
 configfile: "config.yaml"
-ref_genome = config["reference_genome"]
+ref_genome = "genomes/" + config["reference_genome"]
 
 rule all:
     input: "variants/snps.raw.bcf"
@@ -16,9 +16,10 @@ rule fastq_convert:
 rule fragment_assemblies:
     input: "genomes/fastq/{assembly}.fq"
     output: "genomes_fragmented/{assembly}.frag.fq.gz"
-    message: "Using seqkit to create 50bp sliding window fragments on {input}"
+    params: config["fragment_size"]
+    message: "Using seqkit to create {params}bp sliding window fragments from {input}"
     threads: 2
-    shell: "seqkit sliding -j {threads} -s 1 -W 50 {input} -o {output}"
+    shell: "seqkit sliding -j {threads} -s 1 -W {params} {input} -o {output}"
 
 rule index_reference:
     input: ref_genome
@@ -36,10 +37,11 @@ rule map_to_reference:
     threads: 20
     params:
         mapthreads = {threads} - ({threads} // 3),
-        samthreads = {threads} // 3
+        samthreads = {threads} // 3,
+        extraparams = config["bwa_parameters"]
     shell:
         """
-        bwa-mem2 mem -t {params.mapthreads} -a {input.reference} {query} | samtools view -@{params.samthreads} -F 0x04 -bS - > {output}
+        bwa-mem2 mem -t {params.mapthreads} {params.extraparams} -a {input.reference} {query} | samtools view -@{params.samthreads} -F 0x04 -bS - > {output}
         """
 
 rule process_bamfiles:
@@ -85,7 +87,7 @@ rule create_popmap:
         sed 's/.bam//g' {input} | sed "s/.*\///" | paste -d' ' - <(cut -d'.' -f1 {input})
         """
 
-rule assess_coverage:
+rule split_regions:
     input:
         bam = "mapping/alignments.bam",
         bai = "mapping/alignments.bai",
@@ -109,7 +111,8 @@ rule call_variants:
     output: "variants/snps.raw.bcf"
     message: "Calling variants with freebayes"
     threads: 20
+    params: config["freebayes_parameters"]
     shell: 
         """
-        freebayes-parallel {input.regions} {threads} -f {input.genome} {input.bam} -C 3 --min-coverage 5 --standard-filters | bcftools view -Ob - > {output}
+        freebayes-parallel {input.regions} {threads} -f {input.genome} {input.bam} -C 3 --min-coverage 5 --standard-filters {params} | bcftools view -Ob - > {output}
         """
