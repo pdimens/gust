@@ -58,6 +58,15 @@ rule index_reference_bwa:
         bwa-mem2 index {input} > {log} 2>&1
         """
 
+rule index_reference_samtools:
+    input: "genomes/reference/" + ref_genome
+    output: "genomes/reference/" + ref_genome + ".fai"
+    message: "Indexing {input} with samtools"
+    shell:
+        """
+        samtools faidx {input} > {output}
+        """
+
 rule map_to_reference:
     input: 
         reference = "genomes/reference/" + ref_genome,
@@ -81,7 +90,7 @@ rule map_to_reference:
             MAPT=$(awk "BEGIN {{print {threads}-int({threads}/3)}}")
             SAMT=$(awk "BEGIN {{print int({threads}/3)}}")
         fi
-        bwa-mem2 mem -t $MAPT {params} -a {input.reference} {input.query} 2> {log} | samtools view -@$SAMT -F 0x04 -bS - > {output}
+        bwa-mem2 mem -t $MAPT {params} -a {input.reference} {input.query} 2> {log} | samtools view -@$SAMT -F 0x04 -bhS -o {output} -
         """
 
 rule sort_index_alignments:
@@ -91,10 +100,11 @@ rule sort_index_alignments:
         idx = fragsize + "mapping/individual/{assembly}.bam.bai"
     message: "Using samtools to sort and index {input}"
     threads: 5
+    params: fragsize + "mapping/individual/{assembly}"
     shell:
         """
-        samtools sort -@{threads} {input} > {output}
-        samtools index {output}
+        samtools sort -@{threads} -T {params} -o {output.bam} {input}
+        samtools index {output.bam}
         """
 
 rule merge_alignments:
@@ -128,15 +138,6 @@ rule create_popmap:
         sed 's/.bam//g' {input} | sed "s/.*\///" | paste -d' ' - <(cut -d'.' -f1 {input}) > {output}
         """
 
-rule index_reference_samtools:
-    input: "genomes/reference/" + ref_genome
-    output: "genomes/reference/" + ref_genome + ".fai"
-    message: "Indexing {input} with samtools"
-    shell:
-        """
-        samtools faidx {input} > {output}
-        """
-
 rule split_regions:
     input:
         bam = fragsize + "mapping/alignments.bam",
@@ -159,6 +160,7 @@ rule call_variants:
         populations = fragsize + "populations.map"
     output: fragsize + "variants/snps.raw.bcf"
     message: "Calling variants with freebayes"
+    conda: "variantcalling.yml"
     threads: 30
     params: config["freebayes_parameters"]
     shell: 
@@ -171,4 +173,3 @@ rule call_variants:
             | bcftools view -Ob - > {output}
         #freebayes-parallel {input.regions} {threads} -f {input.genome} {input.bam} -C 3 --min-coverage 5 --standard-filters {params} | bcftools view -Ob - > {output}
         """
-
