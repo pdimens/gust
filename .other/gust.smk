@@ -14,6 +14,7 @@ def assemblynames():
         else:
             gzstrippednames.append(i)
     return [Path(i).stem for i in gzstrippednames]
+
 assemblies = assemblynames()
 
 
@@ -26,7 +27,7 @@ rule fastq_convert:
     output: "genomes/fastq/{assembly}.fq"
     message: "Using seqtk to convert {input} to FASTQ with quality score J"
     threads: 1
-    shell: "seqtk seq -F 'J' {input} > {output}"
+    shell: "seqtk seq -C -U -S -F 'J' {input} > {output}"
 
 rule fragment_assemblies:
     input: "genomes/fastq/{assembly}.fq"
@@ -46,16 +47,12 @@ rule isolate_reference:
 rule index_reference_bwa:
     input: "genomes/reference/" + ref_genome
     output: 
-        idx1 = "genomes/reference/" + ref_genome + ".0123",
-        idxamb = "genomes/reference/" + ref_genome + ".amb",
-        idxann = "genomes/reference/" + ref_genome +  ".ann",
-        idxbwt = "genomes/reference/" + ref_genome + ".bwt.2bit.64",
-        idxpac = "genomes/reference/" + ref_genome + ".pac"
+        idx1 = "genomes/reference/" + ref_genome + ".bwt"
     log: "genomes/reference/" + ref_genome + ".idx.log"
     message: "Indexing {input} with bwa-mem2"
     shell:
         """
-        bwa-mem2 index {input} > {log} 2>&1
+        bwa index {input} > {log} 2>&1
         """
 
 rule index_reference_samtools:
@@ -70,15 +67,11 @@ rule index_reference_samtools:
 rule map_to_reference:
     input: 
         reference = "genomes/reference/" + ref_genome,
-        idx1 = "genomes/reference/" + ref_genome + ".0123",
-        idxamb = "genomes/reference/" + ref_genome + ".amb",
-        idxann = "genomes/reference/" + ref_genome +  ".ann",
-        idxbwt = "genomes/reference/" + ref_genome + ".bwt.2bit.64",
-        idxpac = "genomes/reference/" + ref_genome + ".pac",
+	idx = "genomes/reference/" + ref_genome + ".bwt",
         query = fragsize + "genomes_fragmented/{assembly}.frag.fq.gz"
     output: temp(fragsize + "mapping/individual/{assembly}.raw.bam")
     log: fragsize + "mapping/individual/logs/{assembly}.log"
-    message: "Using bwa-mem2 to map {input.query} onto {input.reference}"
+    message: "Using bwa to map {input.query} onto {input.reference}"
     threads: 30
     params: config["bwa_parameters"]
     shell:
@@ -90,7 +83,7 @@ rule map_to_reference:
             MAPT=$(awk "BEGIN {{print {threads}-int({threads}/3)}}")
             SAMT=$(awk "BEGIN {{print int({threads}/3)}}")
         fi
-        bwa-mem2 mem -t $MAPT {params} -a {input.reference} {input.query} 2> {log} | samtools view -@$SAMT -F 0x04 -bhS -o {output} -
+        bwa mem -t $MAPT {params} -a {input.reference} {input.query} 2> {log} | samtools view -@$SAMT -F 0x04 -bh -o {output} -
         """
 
 rule sort_index_alignments:
