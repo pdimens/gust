@@ -5,24 +5,29 @@ configfile: "config.yml"
 ref_genome = config["reference_genome"]
 fragsize = str(config["fragment_size"]) + "bp_fragments/"
 
-def assemblynames():
-    names = glob.glob("genomes/*.fasta")
-    gzstrippednames = []
-    for i in names:
-        if i.endswith(".gz"):
-            gzstrippednames.append(os.path.splitext(i)[0])
-        else:
-            gzstrippednames.append(i)
-    return [Path(i).stem for i in gzstrippednames]
-assemblies = assemblynames()
-
+# locate input files files
+fastanames = [Path(i).stem for i in (glob.glob("genomes/*.fasta") + glob.glob("genomes/*.fa"))]
+fastagznames = [Path(os.path.splitext(i)[0]).stem for i in (glob.glob("genomes/*.fasta.gz") + glob.glob("genomes/*.fa.gz"))]
+allfastanames = fastanames + fastagznames
+# not yet implemented
+fastqnames = list(set([Path(i).stem for i in (glob.glob("reads/*.fastq") + glob.glob("reads/*.fq"))]))
+fastqgznames = list(set([Path(os.path.splitext(i)[0]).stem for i in (glob.glob("reads/*.fastq.gz") + glob.glob("reads/*.fq.gz"))]))
+allfastqnames = fastqnames + fastqgznames
+alldatanames = allfastanames + allfastqnames
 
 rule all:
     input: 
         variants = fragsize + "variants/snps.raw.bcf"
 
-rule fastq_convert:
+rule fasta2fastq:
     input:  "genomes/{assembly}.fasta"
+    output: "genomes/fastq/{assembly}.fq"
+    message: "Using seqtk to convert {input} to FASTQ with quality score J"
+    threads: 1
+    shell: "seqtk seq -C -U -S -F 'J' {input} > {output}"
+
+rule gzfasta2fastq:
+    input:  "genomes/{assembly}.fasta.gz"
     output: "genomes/fastq/{assembly}.fq"
     message: "Using seqtk to convert {input} to FASTQ with quality score J"
     threads: 1
@@ -35,6 +40,34 @@ rule fragment_assemblies:
     message: "Using seqkit to create {params}bp sliding window fragments from {input}"
     threads: 2
     shell: "seqkit sliding -j {threads} -s 1 -W {params} {input} -o {output}"
+
+rule softlink_reads:
+    input: "reads/{reads}.fq"
+    output: "fragsize" + "reads/{reads}.fq.gz"
+    message: "Linking {input} to " + fragsize + "reads"
+    threads: 1
+    shell: "ln -sr {input} {output}"
+
+rule softlink_fastqreads:
+    input: "reads/{reads}.fastq"
+    output: "fragsize" + "reads/{reads}.fq.gz"
+    message: "Linking {input} to " + fragsize + "reads"
+    threads: 1
+    shell: "ln -sr {input} {output}"
+
+rule softlink_gzreads:
+    input: "reads/{reads}.fq.gz"
+    output: "fragsize" + "reads/{reads}.fq.gz"
+    message: "Linking {input} to " + fragsize + "reads"
+    threads: 1
+    shell: "ln -sr {input} {output}"
+
+rule softlink_fastqgzreads:
+    input: "reads/{reads}.fastq.gz"
+    output: "fragsize" + "reads/{reads}.fq.gz"
+    message: "Linking {input} to " + fragsize + "reads"
+    threads: 1
+    shell: "ln -sr {input} {output}"
 
 rule isolate_reference:
     input: "genomes/" + ref_genome
@@ -63,10 +96,10 @@ rule index_reference_samtools:
         samtools faidx {input} > {output}
         """
 
-rule map_to_reference:
+rule map_frags_to_reference:
     input: 
         reference = "genomes/reference/" + ref_genome,
-	idx = "genomes/reference/" + ref_genome + ".bwt",
+	    idx = "genomes/reference/" + ref_genome + ".bwt",
         query = fragsize + "genomes_fragmented/{assembly}.frag.fq.gz"
     output: temp(fragsize + "mapping/individual/{assembly}.raw.bam")
     log: fragsize + "mapping/individual/logs/{assembly}.log"
@@ -85,6 +118,51 @@ rule map_to_reference:
         bwa mem -t $MAPT {params} -a {input.reference} {input.query} 2> {log} | samtools view -@$SAMT -F 0x04 -bh -o {output} -
         """
 
+rule map_SE_to_reference:
+    input: 
+        reference = "genomes/reference/" + ref_genome,
+	    idx = "genomes/reference/" + ref_genome + ".bwt",
+        query = fragsize + "reads/{reads}.fq.gz"
+    output: temp(fragsize + "mapping/individual/{reads}.raw.bam")
+    log: fragsize + "mapping/individual/logs/{reads}.log"
+    message: "Using bwa to map {input.query} onto {input.reference}"
+    threads: 30
+    params: config["bwa_parameters"]
+    shell:
+        """
+        if [ "{threads}" = "2" ]; then
+            MAPT=1
+            SAMT=1
+        else
+            MAPT=$(awk "BEGIN {{print {threads}-int({threads}/3)}}")
+            SAMT=$(awk "BEGIN {{print int({threads}/3)}}")
+        fi
+        bwa mem -t $MAPT {params} -a {input.reference} {input.query} 2> {log} | samtools view -@$SAMT -F 0x04 -bh -o {output} -
+        """
+
+rule map_PE_to_reference:
+    input: 
+        reference = "genomes/reference/" + ref_genome,
+	    idx = "genomes/reference/" + ref_genome + ".bwt",
+        forward = fragsize + "reads/{reads}.1.fq.gz",
+        reverse = fragsize + "reads/{reads}.2.fq.gz"
+    output: temp(fragsize + "mapping/individual/{reads}.raw.bam")
+    log: fragsize + "mapping/individual/logs/{reads}.log"
+    message: "Using bwa to map {input.forward} and {input.reverse} onto {input.reference}"
+    threads: 30
+    params: config["bwa_parameters"]
+    shell:
+        """
+        if [ "{threads}" = "2" ]; then
+            MAPT=1
+            SAMT=1
+        else
+            MAPT=$(awk "BEGIN {{print {threads}-int({threads}/3)}}")
+            SAMT=$(awk "BEGIN {{print int({threads}/3)}}")
+        fi
+        bwa mem -t $MAPT {params} -a {input.reference} {input.forward} {input.reverse} 2> {log} | samtools view -@$SAMT -F 0x04 -bh -o {output} -
+        """
+
 rule sort_index_alignments:
     input: fragsize + "mapping/individual/{assembly}.raw.bam"
     output: 
@@ -100,7 +178,7 @@ rule sort_index_alignments:
         """
 
 rule merge_alignments:
-    input: expand(fragsize + "mapping/individual/{assembly}.bam", assembly = assemblies)
+    input: expand(fragsize + "mapping/individual/{assembly}.bam", assembly = allfastanames)
     output: 
         bamlist= fragsize + "mapping/individual/.bamlist",
         bam = fragsize + "mapping/alignments.bam"
