@@ -33,6 +33,21 @@ rule gzfasta2fastq:
     threads: 1
     shell: "seqtk seq -C -U -S -F 'J' {input} > {output}"
 
+rule fa2fastq:
+    input:  "genomes/{assembly}.fa"
+    output: "genomes/fastq/{assembly}.fq"
+    message: "Using seqtk to convert {input} to FASTQ with quality score J"
+    threads: 1
+    shell: "seqtk seq -C -U -S -F 'J' {input} > {output}"
+
+rule gzfa2fastq:
+    input:  "genomes/{assembly}.fa.gz"
+    output: "genomes/fastq/{assembly}.fq"
+    message: "Using seqtk to convert {input} to FASTQ with quality score J"
+    threads: 1
+    shell: "seqtk seq -C -U -S -F 'J' {input} > {output}"
+
+
 rule fragment_assemblies:
     input: "genomes/fastq/{assembly}.fq"
     output: fragsize + "genomes_fragmented/{assembly}.frag.fq.gz"
