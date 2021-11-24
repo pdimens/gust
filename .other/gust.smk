@@ -14,7 +14,6 @@ def assemblynames():
         else:
             gzstrippednames.append(i)
     return [Path(i).stem for i in gzstrippednames]
-
 assemblies = assemblynames()
 
 
@@ -111,7 +110,7 @@ rule merge_alignments:
     shell: 
         """
         ls {params}mapping/individual/*.bam > {output.bamlist}
-        samtools merge -@{threads} -b {output.bamlist} -f {output} &>/dev/null
+        samtools merge -@{threads} -b {output.bamlist} -f {output.bam}
         """
 
 rule index_alignments:
