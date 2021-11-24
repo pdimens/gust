@@ -5,7 +5,7 @@ configfile: "config.yml"
 ref_genome = config["reference_genome"]
 fragsize = str(config["fragment_size"]) + "bp_fragments/"
 
-# locate input files files
+# locate input fasta files
 fastanames = [Path(i).stem for i in (glob.glob("genomes/*.fasta") + glob.glob("genomes/*.fa"))]
 fastagznames = [Path(os.path.splitext(i)[0]).stem for i in (glob.glob("genomes/*.fasta.gz") + glob.glob("genomes/*.fa.gz"))]
 allfastanames = fastanames + fastagznames
