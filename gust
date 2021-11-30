@@ -62,6 +62,7 @@ else
 fi
 
 if [ ! -d "genomes" ]; then
+    mkdir -p genomes
     echo "Error: 'genomes' folder not found"
     echo "The 'genomes' folder is required for gust and must contain the genome"
     echo "assemblies you want to include in the analyses. One has been created"

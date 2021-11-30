@@ -20,3 +20,6 @@ bwa_parameters: ""
 # extra freebayes parameters you would like to add?
 freebayes_parameters: ""
 # gust uses -C 2 --min-coverage 5 --standard-filter
+
+# window size in base pairs for LD pruning snp data
+window_size: 50000
