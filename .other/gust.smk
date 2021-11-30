@@ -109,7 +109,7 @@ rule alignment_list:
     params: fragsize
     shell:
         """
-        ls {params}alignments/*.bam > {output}
+        echo {input} | tr " " "\n" > {output}
         """
 
 
@@ -141,7 +141,7 @@ rule create_popmap:
     threads: 1
     shell:
         """
-        sed 's/.bam//g' {input} | sed "s/.*\///" | paste -d' ' - - > {output}
+        paste <(sed 's/.bam//g' {input} | sed "s/.*\///") <(sed 's/.bam//g' {input} | sed "s/.*\///") > {output}
         """
 
 rule split_regions:
@@ -206,6 +206,11 @@ rule variant_filter_splitmnp:
         bcftools norm -m -any {input} > {output}
         """
 
+# needs a way to remove sites with genotyping error where reference genome is not homozygous ref allele for that site
+#1 get sample name order in the bcf file
+#2 get 0-based index of the reference sample
+#3 apply a filter something like this
+# where * is the index of the reference sample, which you want to be homozygous for the reference allele
 rule variant_genotyping_error:
     input: fragsize + "snp_discovery/snps.filt.3.bcf"
     output: fragsize + "snp_discovery/snps.filt.4.bcf"
@@ -217,13 +222,6 @@ rule variant_genotyping_error:
         bcftools filter -s GENOERROR -m + -i "'GT[$IDX]="R"'" {input} > {output}
         """
 
-# needs a way to remove sites with genotyping error where reference genome is not homozygous ref allele for that site
-#1 get sample name order in the bcf file
-#2 get 0-based index of the reference sample
-
-
-#3 apply a filter something like this
-# where * is the index of the reference sample, which you want to be homozygous for the reference allele
 
 rule variant_filter_LDthinning:
     input: fragsize + "snp_discovery/snps.filt.4.bcf"
