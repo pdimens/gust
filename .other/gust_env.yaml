@@ -1,4 +1,4 @@
-name: null
+name: gust
 channels:
   - bioconda
   - conda-forge
