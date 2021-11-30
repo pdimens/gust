@@ -19,7 +19,7 @@ allfastanames = fastanames + fastagznames
 rule all:
     input:
         variants = fragsize + "snp_discovery/snps.raw.bcf",
-        fitlered_variants = fragsize + "snp_discovery/snps.filt.4.bcf"
+        fitlered_variants = fragsize + "snp_discovery/snps.filt.5.bcf"
 
 rule fasta2fastq:
     input:  "genomes/{assembly}.fasta"
@@ -226,8 +226,8 @@ rule variant_genotyping_error:
 # where * is the index of the reference sample, which you want to be homozygous for the reference allele
 
 rule variant_filter_LDthinning:
-    input: fragsize + "snp_discovery/snps.filt.3.bcf"
-    output: fragsize + "snp_discovery/snps.filt.4.bcf"
+    input: fragsize + "snp_discovery/snps.filt.4.bcf"
+    output: fragsize + "snp_discovery/snps.filt.5.bcf"
     params: config["window_size"]
     message: "Thinning SNPs in {input} to retain 1 in every {params}bp"
     shell:
