@@ -169,7 +169,7 @@ rule call_variants:
     shell:
         """
         cat {input.regions} | parallel -k -j {threads} freebayes -f {input.genome} --bam-list {input.alignments} \
-            -C 2 --min-coverage 5 --standard-filters --populations {input.populations} --region {{}} \
+            -C 2 --min-coverage 5 --ploidy 1 --standard-filters --populations {input.populations} --region {{}} \
             | vcffirstheader \
             | vcfstreamsort -w 1000 \
             | vcfuniq \
@@ -207,14 +207,14 @@ rule variant_filter_splitmnp:
         """
 
 rule variant_genotyping_error:
-    input:
-    output:
-    message: "Removing sites where the reference genome self-alignment is not homozygous for the reference allele (genotyping error)"
-    params:
+    input: fragsize + "snp_discovery/snps.filt.3.bcf"
+    output: fragsize + "snp_discovery/snps.filt.4.bcf"
+    message: "Removing sites where the reference genome self-alignment does not have the reference allele (genotyping error)"
+    params: ""
     shell:
         """
         IDX=$(bcftools query -l {input} | awk "/$refname/ {print NR - 1}")
-        bcftools filter -s GENOERROR -m + -i "'GT[$IDX]="RR"'" {input} > {output}
+        bcftools filter -s GENOERROR -m + -i "'GT[$IDX]="R"'" {input} > {output}
         """
 
 # needs a way to remove sites with genotyping error where reference genome is not homozygous ref allele for that site
