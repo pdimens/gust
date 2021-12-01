@@ -18,11 +18,11 @@ git clone https://github.com/pdimens/gust.git
 ### 2. Initiate the `gust` conda environment 
 🌪️ **if you already have a `gust` conda environment, skip this step** 🌪️
 
-Use the provided `gust.yaml` conda configuration file to create a new conda environment. If not using `conda`, replace `conda` with the appropriate environment framework, (`mamba`, `micromamba`, etc.)
+Use the provided `gust_env.yml` conda configuration file to create a new conda environment. If not using `conda`, replace `conda` with the appropriate environment framework, (`mamba`, `micromamba`, etc.)
 
 ```bash
 cd gust   # enter the gust directory
-conda env create -f .other/gust_env.yaml
+conda env create -f .other/gust_env.yml
 ```
 This will create a new environment called `gust` containing all the software dependencies. Activate the environment with:
 ```bash
