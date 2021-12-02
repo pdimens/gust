@@ -21,7 +21,7 @@ rule all:
         variants = fragsize + "snp_discovery/snps.raw.bcf",
         fitlered_variants = fragsize + "snp_discovery/snps.filt.5.bcf",
         msa_input = fragsize + "msa/filtered.variants.fasta",
-        msa = fragsize + "msa/variants.msa.phy"
+        msa = fragsize + "msa/variants.resampled.efa"
 
 rule fasta2fastq:
     input:  "genomes/{assembly}.fasta"
@@ -278,23 +278,42 @@ rule vcf2fasta:
 
 rule muscle_msa:
     input: fragsize + "msa/filtered.variants.fasta"
-    output: fragsize + "msa/variants.msa.phy"
-    message: "Using MUSCLE to perform multiple sequence alignment"
-    params: ""
-    threads: 1
+    output: fragsize + "msa/variants.diversified.efa"
+    log: fragsize + "msa/variants.diversified.log"
+    message: "Using MUSCLE to perform diversified multiple sequence alignment (MSA). This will likely take several hours."
+    params: config["muscle_align"]
+    threads: 30
     shell:
         """
-        muscle -in {input} -maxtrees 5 -phyiout {output} -maxiters 30
+        tools/muscle_v5.0.1428_linux -align {input} -diversified -output {output} -nt -threads {threads} {params}
+        tools/muscle_v5.0.1428_linux -disperse {output} -log {log}
         """
 
-rule build_tree_raxml:
-    input: fragsize + "msa/variants.msa.phy"
-    output: fragsize + "phylo/phylogenies.phy"
-    message:
-    threads:
-    params:
-    shell:
+rule extract_best_msa:
+    input: fragsize + "msa/variants.diversified.efa"
+    output: fragsize + "msa/best.msa.afa"
+    message: "Extracting best MSA tree"
+    threads: 1
+    shell: "tools/muscle_v5.0.1428_linux -maxcc {input} -output {output}"
+
+rule resample_msa:
+    input: fragsize + "msa/variants.diversified.efa"
+    output: fragsize + "msa/variants.resampled.efa" #afa = fragsize + "msa/variants.resampled.afa"
+    message: "Resampling diversified MSA ensemble"
+    shell: 
         """
-        raxml -f a -p 12345 -x 12345 -N 20 -s {input} -m GTRCAT -n boot1
-        raxml -f b -t ref -z RAxML_bootstrap.boot1 -m GTRCAT -n consensus
+        tools/muscle_v5.0.1428_linux -resample {input} -output {output}
+        tools/muscle_v5.0.1428_linux -efa_exploide {output}
         """
+
+#rule build_tree_raxml:
+#    input: fragsize + "msa/variants.msa.phy"
+#    output: fragsize + "phylo/phylogenies.phy"
+#    message:
+#    threads:
+#    params:
+#    shell:
+#        """
+#        raxml-ng -f a -p 12345 -x 12345 -N 20 -s {input} -m GTRCAT -n boot1
+#        raxml-ng -f b -t ref -z RAxML_bootstrap.boot1 -m GTRCAT -n consensus
+#        """
