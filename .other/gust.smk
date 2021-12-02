@@ -19,7 +19,9 @@ allfastanames = fastanames + fastagznames
 rule all:
     input:
         variants = fragsize + "snp_discovery/snps.raw.bcf",
-        fitlered_variants = fragsize + "snp_discovery/snps.filt.5.bcf"
+        fitlered_variants = fragsize + "snp_discovery/snps.filt.5.bcf",
+        msa_input = fragsize + "msa/filtered.variants.fasta",
+        msa = fragsize + "msa/variants.msa.phy"
 
 rule fasta2fastq:
     input:  "genomes/{assembly}.fasta"
@@ -162,8 +164,8 @@ rule call_variants:
         regions = fragsize + "snp_discovery/reference.5kb.regions",
         populations = fragsize + "populations.map"
     output: fragsize + "snp_discovery/snps.raw.bcf"
+    log: fragsize + "snp_discovery/variant.stats"
     message: "Calling variants with freebayes"
-    conda: "variantcalling.yml"
     threads: 30
     params: config["freebayes_parameters"]
     shell:
@@ -174,15 +176,21 @@ rule call_variants:
             | vcfstreamsort -w 1000 \
             | vcfuniq \
             | bcftools view -Ob - > {output}
+        echo "file,sites,filter" > {log}
+        echo -n "$(basename {output} .bcf),$(bcftools query {output} -f '%DP\n' | wc -l)" >> {log}
+        echo ",raw variant sites" >> {log}
         """
 
 rule variant_filter_qual:
     input: fragsize + "snp_discovery/snps.raw.bcf"
     output: fragsize + "snp_discovery/snps.filt.1.bcf"
     message: "Filtering {input} based on genotype quality, mapping quality, and depth"
+    params: fragsize
     shell:
         """
         bcftools view -i'QUAL>=30 && SRR<3 && MQM>40.0 && MQMR>-5.0 && MIN(INFO/DP)>10' {input} > {output}
+        echo -n "$(basename {output} .bcf),$(bcftools query {output} -f '%DP\n' | wc -l)" >> {params}snp_discovery/variant.stats
+        echo ",include QUAL>=30 && SRR<3 && MQM>40.0 && MQMR>-5.0 && MIN(INFO/DP)>10" >> {params}snp_discovery/variant.stats
         """
 
 rule variant_filter_sitedepth:
@@ -190,20 +198,27 @@ rule variant_filter_sitedepth:
     output: fragsize + "snp_discovery/snps.filt.2.bcf"
     log: fragsize + "snp_discovery/sitedepth.txt"
     message: "Filtering {input} by maximum depth, monomorphism, maximum depth. Also removing sites with any missing data"
+    params: fragsize
     shell:
         """
         bcftools query {input} -f '%DP\n' > {log}
         MAXDP=$(awk '{{ sum += $1; n++ }} END {{ if (n > 0) print sum / n; }}' {log})
         bcftools view -e "F_MISSING > 0.0 || AC==0 || AC=AN || INFO/DP>$MAXDP || INFO/DP < 10" {input} > {output}
+        echo -n "$(basename {output} .bcf),$(bcftools query {output} -f '%DP\n' | wc -l)" >> {params}snp_discovery/variant.stats
+        echo ",exclude F_MISSING > 0.0 || AC==0 || AC=AN || INFO/DP>$MAXDP || INFO/DP < 10" >> {params}snp_discovery/variant.stats
         """
 
 rule variant_filter_splitmnp:
     input: fragsize + "snp_discovery/snps.filt.2.bcf"
     output: fragsize + "snp_discovery/snps.filt.3.bcf"
-    message: "Splitting SNPs from indels in {input}"
+    message: "Splitting SNPs from indels in {input} and removing indels"
+    params: fragsize
     shell:
         """
-        bcftools norm -m -any {input} > {output}
+        bcftools norm -m -any -a {input} | bcftools view --types snps > {output}
+        #bcftools norm -m -snps {input} | bcftools view --types snps > {output}
+        echo -n "$(basename {output} .bcf),$(bcftools query {output} -f '%DP\n' | wc -l)" >> {params}snp_discovery/variant.stats
+        echo ",norm -m -any and --types snps" >> {params}snp_discovery/variant.stats
         """
 
 # needs a way to remove sites with genotyping error where reference genome is not homozygous ref allele for that site
@@ -215,20 +230,71 @@ rule variant_genotyping_error:
     input: fragsize + "snp_discovery/snps.filt.3.bcf"
     output: fragsize + "snp_discovery/snps.filt.4.bcf"
     message: "Removing sites where the reference genome self-alignment does not have the reference allele (genotyping error)"
-    params: ""
+    params: 
+        refgeno = ref_genome,
+        dir = fragsize
     shell:
         """
-        IDX=$(bcftools query -l {input} | awk "/$refname/ {print NR - 1}")
+        refname=$(basename {params.refgeno} .fasta)
+        IDX=$(bcftools query -l {input} | awk "/$refname/ {{print NR - 1}}")
         bcftools filter -s GENOERROR -m + -i "'GT[$IDX]="R"'" {input} > {output}
+        echo -n "$(basename {output} .bcf),$(bcftools query {output} -f '%DP\n' | wc -l)" >> {params.dir}snp_discovery/variant.stats
+        echo ",include GT[$IDX]=\"R\"" >> {params.dir}snp_discovery/variant.stats
         """
 
 
 rule variant_filter_LDthinning:
     input: fragsize + "snp_discovery/snps.filt.4.bcf"
     output: fragsize + "snp_discovery/snps.filt.5.bcf"
-    params: config["window_size"]
+    params: 
+        window = config["window_size"],
+        dir = fragsize
     message: "Thinning SNPs in {input} to retain 1 in every {params}bp"
     shell:
         """
-        bcftools +prune -w {params}bp -n 1 -N maxAF {input} > {output}
+        bcftools +prune -w {params.window}bp -n 1 -N maxAF {input} > {output}
+        echo -n "$(basename {output} .bcf),$(bcftools query {output} -f '%DP\n' | wc -l)" >> {params.dir}/snp_discovery/variant.stats
+        echo ",+prune -w {params.window}bp -n 1 -N maxAF" >> {params.dir}/snp_discovery/variant.stats
+        # nicer fixed-width table
+        column -t -s"," {params.dir}/snp_discovery/variant.stats > {params.dir}snp_discovery/.variant.stats \
+        && rm {params.dir}/snp_discovery/variant.stats \
+        && mv {params.dir}/snp_discovery/.variant.stats {params.dir}snp_discovery/variant.stats
+        """
+
+rule vcf2fasta:
+    input: fragsize + "snp_discovery/snps.filt.5.bcf"
+    output: fragsize + "msa/filtered.variants.fasta"
+    message: "Converting the filtered variants into FASTA format for multiple sequence alignment (MSA)"
+    params:
+        outgroup = config["outgroup"],
+        outdir = fragsize + "msa"
+    threads: 1
+    shell: 
+        """
+        outgroup=$(basename {params.outgroup} .fasta)
+        tools/vcf2phylip.py -i {input} -p -f -m 2 --output-folder {params.outdir} --output-prefix filtered.variants -o $outgroup
+        mv {params.outdir}/filtered.variants.min2.fasta {params.outdir}/filtered.variants.fasta
+        """
+
+rule muscle_msa:
+    input: fragsize + "msa/filtered.variants.fasta"
+    output: fragsize + "msa/variants.msa.phy"
+    message: "Using MUSCLE to perform multiple sequence alignment"
+    params: ""
+    threads: 1
+    shell:
+        """
+        muscle -in {input} -maxtrees 5 -phyiout {output} -maxiters 30
+        """
+
+rule build_tree_raxml:
+    input: fragsize + "msa/variants.msa.phy"
+    output: fragsize + "phylo/phylogenies.phy"
+    message:
+    threads:
+    params:
+    shell:
+        """
+        raxml -f a -p 12345 -x 12345 -N 20 -s {input} -m GTRCAT -n boot1
+        raxml -f b -t ref -z RAxML_bootstrap.boot1 -m GTRCAT -n consensus
         """
