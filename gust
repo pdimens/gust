@@ -28,8 +28,9 @@ if [[ -z "$2" ]]; then
     if [ ! -f config.yml ]; then
         echo "Error: No config.yml found"
         echo "The file 'config.yml' is required to run gust but wasn't found. It"
-        echo "was created for you, please edit it to point to the reference genome"
-        echo "and run gust again. you can also add extra parameters before running"
+        echo "was created for you, please edit it to point to the reference and"
+        echo "and outgroup genomes, then run gust again. You can also modify"
+        echo "parameters before running."
         cat <<EOF >config.yml
 #=======================================================#
 #                     gust config file                  #
