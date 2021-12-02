@@ -15,7 +15,7 @@ outgroup: ""
 # name of the outgroup genome in the genomes/ dir
 
 bwa_parameters: "-a -k 19"
-# -a is to output all alignments
+# -a outputs all alignments
 # -k 19 is a kmer size of 19
 
 freebayes_parameters: "-C 2 --min-coverage 5 --standard-filter --ploidy 1"
