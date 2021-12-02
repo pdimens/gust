@@ -15,12 +15,10 @@ reference_genome: ""
 # what is the name of the outgroup genome in the genomes/ dir?
 outgroup: ""
 
-# if you want to change the bwa parameters
 bwa_parameters: "-a -k 19"
 # -a is to output all alignments
 # -k 19 is a kmer size of 19
 
-# if you want to change the freebayes parameters
 freebayes_parameters: "-C 2 --min-coverage 5 --standard-filter --ploidy 1"
 # -C 2 means at least 2 samples need to have alt alleles for a site to be kept
 # --min-coverage 5 means at least 5 aligments to score a site
@@ -31,6 +29,6 @@ freebayes_parameters: "-C 2 --min-coverage 5 --standard-filter --ploidy 1"
 window_size: 50000
 # bigger window = fewer snps
 
-# additional parameters for multi-seq alignment using MUSCLE v5
+# parameters for multi-seq alignment using MUSCLE v5
 muscle_align: "-replicates 100"
 # if runtime is important, you may want to reduce iterations
