@@ -3,17 +3,16 @@
 #  most of this file is comments, which you can delete  #
 #=======================================================#
 
-# size of the sliding window genome fragments?
 fragment_size: 50
-# the default is 50 (also used by REALPHY),
-# but values of 50-300+ should be ok (use your judgement)
+# size of the sliding window genome fragments
+# values of 50-300+ should be ok (use your judgement)
 # note: bwa isn't good at mapping really long sequences
 
-# what is the name of reference genome in the genomes/ dir?
 reference_genome: ""
+# name of reference genome in the genomes/ dir
 
-# what is the name of the outgroup genome in the genomes/ dir?
 outgroup: ""
+# name of the outgroup genome in the genomes/ dir
 
 bwa_parameters: "-a -k 19"
 # -a is to output all alignments
@@ -25,10 +24,9 @@ freebayes_parameters: "-C 2 --min-coverage 5 --standard-filter --ploidy 1"
 # --standard-filter is to add more stringency
 # --ploidy 1 because these are typically haploid assemblies
 
-# window size in base pairs for LD pruning snp data
 window_size: 50000
+# window size in base pairs for LD pruning snp data
 # bigger window = fewer snps
 
-# parameters for multi-seq alignment using MUSCLE v5
-muscle_align: "-replicates 100"
-# if runtime is important, you may want to reduce iterations
+musclev5_parameters: "-replicates 100"
+# if runtime is important, you may want to reduce replicates

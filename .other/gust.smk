@@ -258,7 +258,7 @@ rule muscle_msa:
     output: fragsize + "msa/variants.diversified.efa"
     log: fragsize + "msa/variants.diversified.log"
     message: "Using MUSCLE to perform diversified multiple sequence alignment (MSA). This will likely take several hours."
-    params: config["muscle_align"]
+    params: config["musclev5_parameters"]
     threads: 30
     shell:
         """
