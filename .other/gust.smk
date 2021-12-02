@@ -86,7 +86,7 @@ rule map_frags_to_reference:
             MAPT=$(awk "BEGIN {{print {threads}-int({threads}/3)}}")
             SAMT=$(awk "BEGIN {{print int({threads}/3)}}")
         fi
-        bwa mem -t $MAPT {params.bwa} -R "@RG\\tID:{params.header}\\tSM:{params.header}\\tPL:Illumina" -a {input.reference} {input.query} 2> {log} | samtools view -@$SAMT -F 0x04 -bh -o {output} -
+        bwa mem -t $MAPT {params.bwa} -R "@RG\\tID:{params.header}\\tSM:{params.header}\\tPL:Illumina" {input.reference} {input.query} 2> {log} | samtools view -@$SAMT -F 0x04 -bh -o {output} -
         """
 
 rule sort_index_alignments:
@@ -114,28 +114,6 @@ rule alignment_list:
         echo {input} | tr " " "\n" > {output}
         """
 
-
-#rule merge_alignments:
-#    input: expand(fragsize + "alignments/{assembly}.bam", assembly = allfastanames)
-#    output:
-#        bamlist= fragsize + "alignments/.bamlist",
-#        bam = fragsize + "alignments/alignments.bam"
-#    message: "Merging all of the alignments of {output.bamlist} into {output.bam}"
-#    threads: 30
-#    params: fragsize
-#    shell:
-#        """
-#        ls {params}alignments/*.bam > {output.bamlist}
-#        samtools merge -@{threads} -b {output.bamlist} -f {output.bam}
-#        """
-#
-#rule index_alignments:
-#    input: fragsize + "alignments/alignments.bam"
-#    output: fragsize + "alignments/alignments.bam.bai"
-#    message: "Indexing {input} with samtools"
-#    threads: 1
-#    shell: "samtools index {input}"
-#
 rule create_popmap:
     input: fragsize + "alignments/alignments.list"
     output: fragsize + "populations.map"
@@ -171,7 +149,7 @@ rule call_variants:
     shell:
         """
         cat {input.regions} | parallel -k -j {threads} freebayes -f {input.genome} --bam-list {input.alignments} \
-            -C 2 --min-coverage 5 --ploidy 1 --standard-filters --populations {input.populations} --region {{}} \
+            {params} --populations {input.populations} --region {{}} \
             | vcffirstheader \
             | vcfstreamsort -w 1000 \
             | vcfuniq \
@@ -216,9 +194,8 @@ rule variant_filter_splitmnp:
     shell:
         """
         bcftools norm -m -any -a {input} | bcftools view --types snps > {output}
-        #bcftools norm -m -snps {input} | bcftools view --types snps > {output}
         echo -n "$(basename {output} .bcf),$(bcftools query {output} -f '%DP\n' | wc -l)" >> {params}snp_discovery/variant.stats
-        echo ",norm -m -any and --types snps" >> {params}snp_discovery/variant.stats
+        echo ",norm -m -any -a and --types snps" >> {params}snp_discovery/variant.stats
         """
 
 # needs a way to remove sites with genotyping error where reference genome is not homozygous ref allele for that site
@@ -249,7 +226,7 @@ rule variant_filter_LDthinning:
     params: 
         window = config["window_size"],
         dir = fragsize
-    message: "Thinning SNPs in {input} to retain 1 in every {params}bp"
+    message: "Thinning SNPs in {input} to retain 1 in every {params.window}bp"
     shell:
         """
         bcftools +prune -w {params.window}bp -n 1 -N maxAF {input} > {output}
