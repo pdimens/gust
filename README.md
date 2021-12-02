@@ -43,11 +43,10 @@ It's minimal, I swear.
 1. Put all of the genomes you want included in analysis in the `genomes` folder
     - **make sure the files end with `.fasta`**
     - I haven't figured out how to make snakemake more flexible with this (PR's welcome!)
-2a. Specify the name of the reference genome you want to use in `config.yml`
-    - the genome should be in the `genomes/` folder
+2. Specify the name of the reference genome and outgroup genome in `config.yml`
+    - the genomes should be in the `genomes/` folder
     - use **just** the name, not the full path
     - e.g. `"bostauros.fasta"` ✅  vs `"genomes/bostauros.fasta"` ❌
-2b. Specify the name of the outgroup genome you want to use in `config.yml`, just like the reference
 3. [optional] If you want, modify software parameters in `config.yml`
 
 ### Running
