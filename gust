@@ -45,6 +45,9 @@ fragment_size: 50
 # what is the name of reference genome in the genomes/ dir?
 reference_genome: ""
 
+# what is the name of the outgroup genome in the genomes/ dir?
+outgroup: ""
+
 # extra bwa-mem parameters you would like to add?
 bwa_parameters: ""
 # gust uses only the -a flag
@@ -52,7 +55,16 @@ bwa_parameters: ""
 
 # extra freebayes parameters you would like to add?
 freebayes_parameters: ""
-# gust uses -C 3 --min-coverage 5 --standard-filter
+# gust uses -C 2 --min-coverage 5 --standard-filter
+
+# window size in base pairs for LD pruning snp data
+window_size: 50000
+# bigger window = fewer snps
+
+# additional parameters for multi-seq alignment using MUSCLE v5
+muscle_align: ""
+# if runtime is important, you may want to reduce iterations
+# the default is -replicates 100
 EOF
         exit 1
     fi
