@@ -6,15 +6,23 @@ An easy breezy snp-based whole genome phylogenetic pipeline 🌪️
 1. Any kind of conda environment 
     - `anaconda`, `miniconda`, `micromamba`
     - I recommend `mamba`
-3. A `git` installation
-4. Linux system (macOS probably works too, untested)
+3. A `git` installation (optional)
+4. Linux system
 
 ### 1. Clone this repository
 Everything you'll need is right here in this repository, which will also be your project directory. You'll need to clone
 this repository for every new project (it's very lightweight). Feel free to rename the `gust` folder to whatever is relevant for your project.
+
+#### with `git` (recommended)
 ```bash
 git clone https://github.com/pdimens/gust.git
 ```
+#### without `git`
+```bash
+wget -O gust.zip https://github.com/pdimens/gust/archive/refs/heads/main.zip
+unzip gust.zip
+```
+
 ### 2. Initiate the `gust` conda environment 
 🌪️ **if you already have a `gust` conda environment, skip this step** 🌪️
 
