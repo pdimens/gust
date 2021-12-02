@@ -20,7 +20,7 @@ git clone https://github.com/pdimens/gust.git
 #### without `git`
 ```bash
 wget -O gust.zip https://github.com/pdimens/gust/archive/refs/heads/main.zip
-unzip gust.zip
+unzip gust.zip  # or whatever archive extractor you have
 ```
 
 ### 2. Initiate the `gust` conda environment 
