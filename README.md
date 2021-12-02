@@ -51,7 +51,7 @@ It's minimal, I swear.
 3. [optional] If you want, modify software parameters in `config.yml`
 
 ### Running
-- active the `gust` environment with `conda activate gust`
+- activate the `gust` environment with `conda activate gust`
 If you call `gust` without arguments you will see help text, otherwise:
 ```bash
 ./gust numThreads configFile
