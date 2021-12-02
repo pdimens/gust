@@ -35,13 +35,15 @@ It's minimal, I swear.
 1. Put all of the genomes you want included in analysis in the `genomes` folder
     - **make sure the files end with `.fasta`**
     - I haven't figured out how to make snakemake more flexible with this (PR's welcome!)
-2. Specify the name of the genome you want to use as the reference in `config.yml`
+2a. Specify the name of the reference genome you want to use in `config.yml`
     - the genome should be in the `genomes/` folder
     - use **just** the name, not the full path
     - e.g. `"bostauros.fasta"` ✅  vs `"genomes/bostauros.fasta"` ❌
-3. Specify any other additional parameters in `config.yml` if you want them (bwa kmer size, fragment size, etc.)
+2b. Specify the name of the outgroup genome you want to use in `config.yml`, just like the reference
+3. [optional] If you want, modify software parameters in `config.yml`
 
 ### Running
+- active the `gust` environment with `conda activate gust`
 If you call `gust` without arguments you will see help text, otherwise:
 ```bash
 ./gust numThreads configFile
