@@ -88,7 +88,7 @@ rule map_frags_to_reference:
             MAPT=$(awk "BEGIN {{print {threads}-int({threads}/3)}}")
             SAMT=$(awk "BEGIN {{print int({threads}/3)}}")
         fi
-        bwa mem -t $MAPT {params.bwa} -R "@RG\\tID:{params.header}\\tSM:{params.header}\\tPL:Illumina" -a {input.reference} {input.query} 2> {log} | samtools view -@$SAMT -F 0x04 -bh -o {output} -
+        bwa mem -t $MAPT {params.bwa} -R "@RG\\tID:{params.header}\\tSM:{params.header}\\tPL:Illumina" {input.reference} {input.query} 2> {log} | samtools view -@$SAMT -F 0x04 -bh -o {output} -
         """
 
 rule sort_index_alignments:
@@ -173,7 +173,7 @@ rule call_variants:
     shell:
         """
         cat {input.regions} | parallel -k -j {threads} freebayes -f {input.genome} --bam-list {input.alignments} \
-            -C 2 --min-coverage 5 --ploidy 1 --standard-filters --populations {input.populations} --region {{}} \
+            {params} --populations {input.populations} --region {{}} \
             | vcffirstheader \
             | vcfstreamsort -w 1000 \
             | vcfuniq \
@@ -250,13 +250,14 @@ rule variant_filter_LDthinning:
     output: fragsize + "snp_discovery/snps.filt.5.bcf"
     params: 
         window = config["window_size"],
+        sitesper = config["sites_per_window"],
         outdir = fragsize
-    message: "Thinning SNPs in {input} to retain 1 in every {params}bp"
+    message: "Thinning SNPs in {input} to retain {params.sitesper} sites in every {params.window}bp"
     shell:
         """
-        bcftools +prune -w {params.window}bp -n 1 -N maxAF {input} > {output}
+        bcftools +prune -w {params.window}bp -n {params.sitesper} -N maxAF {input} > {output}
         echo -n "$(basename {output} .bcf),$(bcftools query {output} -f '%DP\n' | wc -l)" >> {params.dir}/snp_discovery/variant.stats
-        echo ",+prune -w {params.window}bp -n 1 -N maxAF" >> {params.dir}/snp_discovery/variant.stats
+        echo ",+prune -w {params.window}bp -n {params.sitesper} -N maxAF" >> {params.dir}/snp_discovery/variant.stats
         # nicer fixed-width table
         column -t -s"," {params.dir}/snp_discovery/variant.stats > {params.dir}snp_discovery/.variant.stats \
         && rm {params.dir}/snp_discovery/variant.stats \
@@ -283,7 +284,7 @@ rule muscle_msa:
     output: fragsize + "msa/variants.diversified.efa"
     log: fragsize + "msa/variants.diversified.log"
     message: "Using MUSCLE to perform diversified multiple sequence alignment (MSA). This will likely take several hours."
-    params: config["muscle_parameters"]
+    params: config["musclev5_parameters"]
     threads: 30
     shell:
         """
