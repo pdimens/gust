@@ -30,3 +30,11 @@ window_size: 50000
 
 musclev5_parameters: "-replicates 100"
 # if runtime is important, you may want to reduce replicates
+
+raxml_model: "GTR+G"
+# the phylogenetic model you would like to use
+
+raxml_parameters: "--bs-trees 100 --tree pars{25},rand{25} -brlen scaled"
+# --bs-trees 100 is 100 bootstrapped trees
+# --tree pars{25},rand{25} is to use 25 parsimonious trees and 25 random trees
+# -brlen scaled is the model for branch linkage
