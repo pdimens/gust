@@ -21,7 +21,9 @@ rule all:
         variants = fragsize + "snp_discovery/snps.raw.bcf",
         fitlered_variants = fragsize + "snp_discovery/snps.filt.5.bcf",
         msa_input = fragsize + "msa/filtered.variants.fasta",
-        phylotree = fragsize + "phylogeny/optimized.raxml.bestTree"
+        phylotree = fragsize + "phylogeny/final.raxml.support",
+        plot = fragsize + "phylogeny/final.tree.png"
+    message: "Finished running gust!"
 
 rule fasta2fastq:
     input:  "genomes/{assembly}.fasta"
@@ -248,7 +250,7 @@ rule variant_filter_LDthinning:
     output: fragsize + "snp_discovery/snps.filt.5.bcf"
     params: 
         window = config["window_size"],
-        dir = fragsize
+        outdir = fragsize
     message: "Thinning SNPs in {input} to retain 1 in every {params}bp"
     shell:
         """
@@ -309,37 +311,60 @@ rule extract_best_msa:
 rule build_tree_raxml:
     input: fragsize + "msa/best.msa.afa"
     output: 
-        best = fragsize + "phylogeny/initial.raxml.bestTree",
         bootstraps = fragsize + "phylogeny/initial.raxml.bootstraps",
-        binary = fragsize + "phylogeny/initial.raxml.rba",
-        mltrees = fragsize + "phylogeny/initial.raxml.mlTrees",
         bestsupported = fragsize + "phylogeny/initial.raxml.support",
-        optmodel = fragsize + "phylogeny/initial.raxml.bestModel"
-    log: fragsize + "phylogeny/logs/convergence.log"
-    message:
-    threads:
+        mltrees = fragsize + "phylogeny/initial.raxml.mlTrees"
+    message: "Running RaxML for maximum likelihood tree building and searching"
+    threads: 30
     params:
         outdir = fragsize + "phylogeny",
         model = config["raxml_model"],
+        outgroup = config["outgroup"],
         parameters = config["raxml_parameters"]
     shell:
         """
-        raxml-ng --all --msa {input} --model {params.model} --prefix {params.outdir}/initial --threads {threads} --bs-metric tbe {params.parameters}
-        raxml-ng --bsconverge --bs-trees {output.bootstraps} > {log}
+        outgroup=$(basename {params.outgroup} .fasta)
+        raxml-ng --all --msa {input} --model {params.model} --outgroup $outgroup --prefix {params.outdir}/initial --threads {threads} --bs-metric tbe {params.parameters} > /dev/null 2>&1
+        raxml-ng --bsconverge --bs-trees {output.bootstraps} --bs-cutoff 0.01 > /dev/null 2>&1
+        raxml-ng --rfdist --tree {output.mltrees} --prefix {params.outdir}/initial > /dev/null 2>&1
+        mkdir -p {params.outdir}/logs
         mv {params.outdir}/*log {params.outdir}/logs
         """
 
 rule evaluate_tree:
     input:
         msa = fragsize + "msa/best.msa.afa",
-        tree = fragsize + "phylogeny/initial.raxml.support"
-    output: fragsize + "phylogeny/optimized.raxml.bestTree"
-    log: fragsize + "phylogeny/optimized.raxml.bestmodel"
+        tree = fragsize + "phylogeny/initial.raxml.support",
+        bootstraps = fragsize + "phylogeny/initial.raxml.bootstraps"
+    output: 
+        best = fragsize + "phylogeny/optimized.raxml.bestTree",
+        support = fragsize + "phylogeny/final.raxml.support",
+        model = fragsize + "phylogeny/optimized.raxml.bestModel",
+        final = fragsize + "phylogeny/final.raxml.bestModel"
+    message: "Evaluating the best supported tree and optimizing its parameters"
+    threads: 30
     params: 
         outdir = fragsize + "phylogeny",
-        model = config["raxml_model"]
+        model = config["raxml_model"],
+        outgroup = config["outgroup"],
+        parameters = config["raxml_parameters"]
     shell: 
         """
-        raxml-ng --evaluate --msa {input} --threads {threads} --model {params.model} --tree {input.tree} --prefix {params.outdir}/optimized --opt-model on --opt-branches on
+        outgroup=$(basename {params.outgroup} .fasta)
+        raxml-ng --evaluate --msa {input.msa} --threads {threads} --model {params.model} --tree {input.tree} --prefix {params.outdir}/optimized --opt-model on --opt-branches on > /dev/null 2>&1
+        raxml-ng --all --msa {input.msa} --model {output.model} --outgroup $outgroup --prefix {params.outdir}/final --threads {threads} --bs-metric tbe {params.parameters} > /dev/null 2>&1
         mv {params.outdir}/*log {params.outdir}/logs
         """
+
+rule plot_tree:
+    input: fragsize + "phylogeny/final.raxml.support"
+    output: fragsize + "phylogeny/final.tree.png"
+    message: "Plotting the final tree"
+    run:
+        R("""
+        suppressPackageStartupMessages(library(ggtree))
+        pdf(NULL)
+        input <- read.tree("{input}")
+        ggtree(input) + geom_tiplab() + geom_nodelab(size=3, col="dodgerblue")
+        ggsave("{output")
+        """)
