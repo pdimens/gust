@@ -21,7 +21,7 @@ rule all:
         variants = fragsize + "snp_discovery/snps.raw.bcf",
         fitlered_variants = fragsize + "snp_discovery/snps.filt.5.bcf",
         msa_input = fragsize + "msa/filtered.variants.fasta",
-        msa = fragsize + "msa/variants.resampled.efa"
+        phylotree = fragsize + "phylogeny/optimized.raxml.bestTree"
 
 rule fasta2fastq:
     input:  "genomes/{assembly}.fasta"
@@ -86,7 +86,7 @@ rule map_frags_to_reference:
             MAPT=$(awk "BEGIN {{print {threads}-int({threads}/3)}}")
             SAMT=$(awk "BEGIN {{print int({threads}/3)}}")
         fi
-        bwa mem -t $MAPT {params.bwa} -R "@RG\\tID:{params.header}\\tSM:{params.header}\\tPL:Illumina" {input.reference} {input.query} 2> {log} | samtools view -@$SAMT -F 0x04 -bh -o {output} -
+        bwa mem -t $MAPT {params.bwa} -R "@RG\\tID:{params.header}\\tSM:{params.header}\\tPL:Illumina" -a {input.reference} {input.query} 2> {log} | samtools view -@$SAMT -F 0x04 -bh -o {output} -
         """
 
 rule sort_index_alignments:
@@ -114,6 +114,28 @@ rule alignment_list:
         echo {input} | tr " " "\n" > {output}
         """
 
+
+#rule merge_alignments:
+#    input: expand(fragsize + "alignments/{assembly}.bam", assembly = allfastanames)
+#    output:
+#        bamlist= fragsize + "alignments/.bamlist",
+#        bam = fragsize + "alignments/alignments.bam"
+#    message: "Merging all of the alignments of {output.bamlist} into {output.bam}"
+#    threads: 30
+#    params: fragsize
+#    shell:
+#        """
+#        ls {params}alignments/*.bam > {output.bamlist}
+#        samtools merge -@{threads} -b {output.bamlist} -f {output.bam}
+#        """
+#
+#rule index_alignments:
+#    input: fragsize + "alignments/alignments.bam"
+#    output: fragsize + "alignments/alignments.bam.bai"
+#    message: "Indexing {input} with samtools"
+#    threads: 1
+#    shell: "samtools index {input}"
+#
 rule create_popmap:
     input: fragsize + "alignments/alignments.list"
     output: fragsize + "populations.map"
@@ -149,7 +171,7 @@ rule call_variants:
     shell:
         """
         cat {input.regions} | parallel -k -j {threads} freebayes -f {input.genome} --bam-list {input.alignments} \
-            {params} --populations {input.populations} --region {{}} \
+            -C 2 --min-coverage 5 --ploidy 1 --standard-filters --populations {input.populations} --region {{}} \
             | vcffirstheader \
             | vcfstreamsort -w 1000 \
             | vcfuniq \
@@ -194,8 +216,9 @@ rule variant_filter_splitmnp:
     shell:
         """
         bcftools norm -m -any -a {input} | bcftools view --types snps > {output}
+        #bcftools norm -m -snps {input} | bcftools view --types snps > {output}
         echo -n "$(basename {output} .bcf),$(bcftools query {output} -f '%DP\n' | wc -l)" >> {params}snp_discovery/variant.stats
-        echo ",norm -m -any -a and --types snps" >> {params}snp_discovery/variant.stats
+        echo ",norm -m -any and --types snps" >> {params}snp_discovery/variant.stats
         """
 
 # needs a way to remove sites with genotyping error where reference genome is not homozygous ref allele for that site
@@ -226,7 +249,7 @@ rule variant_filter_LDthinning:
     params: 
         window = config["window_size"],
         dir = fragsize
-    message: "Thinning SNPs in {input} to retain 1 in every {params.window}bp"
+    message: "Thinning SNPs in {input} to retain 1 in every {params}bp"
     shell:
         """
         bcftools +prune -w {params.window}bp -n 1 -N maxAF {input} > {output}
@@ -258,7 +281,7 @@ rule muscle_msa:
     output: fragsize + "msa/variants.diversified.efa"
     log: fragsize + "msa/variants.diversified.log"
     message: "Using MUSCLE to perform diversified multiple sequence alignment (MSA). This will likely take several hours."
-    params: config["musclev5_parameters"]
+    params: config["muscle_parameters"]
     threads: 30
     shell:
         """
@@ -273,24 +296,50 @@ rule extract_best_msa:
     threads: 1
     shell: "tools/muscle_v5.0.1428_linux -maxcc {input} -output {output}"
 
-rule resample_msa:
-    input: fragsize + "msa/variants.diversified.efa"
-    output: fragsize + "msa/variants.resampled.efa" #afa = fragsize + "msa/variants.resampled.afa"
-    message: "Resampling diversified MSA ensemble"
-    shell: 
+#rule resample_msa:
+#    input: fragsize + "msa/variants.diversified.efa"
+#    output: fragsize + "msa/variants.resampled.efa" #afa = fragsize + "msa/variants.resampled.afa"
+#    message: "Resampling diversified MSA ensemble"
+#    shell: 
+#        """
+#        tools/muscle_v5.0.1428_linux -resample {input} -output {output}
+#        tools/muscle_v5.0.1428_linux -efa_explode {output}
+#        """
+
+rule build_tree_raxml:
+    input: fragsize + "msa/best.msa.afa"
+    output: 
+        best = fragsize + "phylogeny/initial.raxml.bestTree",
+        bootstraps = fragsize + "phylogeny/initial.raxml.bootstraps",
+        binary = fragsize + "phylogeny/initial.raxml.rba",
+        mltrees = fragsize + "phylogeny/initial.raxml.mlTrees",
+        bestsupported = fragsize + "phylogeny/initial.raxml.support",
+        optmodel = fragsize + "phylogeny/initial.raxml.bestModel"
+    log: fragsize + "phylogeny/logs/convergence.log"
+    message:
+    threads:
+    params:
+        outdir = fragsize + "phylogeny",
+        model = config["raxml_model"],
+        parameters = config["raxml_parameters"]
+    shell:
         """
-        tools/muscle_v5.0.1428_linux -resample {input} -output {output}
-        tools/muscle_v5.0.1428_linux -efa_exploide {output}
+        raxml-ng --all --msa {input} --model {params.model} --prefix {params.outdir}/initial --threads {threads} --bs-metric tbe {params.parameters}
+        raxml-ng --bsconverge --bs-trees {output.bootstraps} > {log}
+        mv {params.outdir}/*log {params.outdir}/logs
         """
 
-#rule build_tree_raxml:
-#    input: fragsize + "msa/variants.msa.phy"
-#    output: fragsize + "phylo/phylogenies.phy"
-#    message:
-#    threads:
-#    params:
-#    shell:
-#        """
-#        raxml-ng -f a -p 12345 -x 12345 -N 20 -s {input} -m GTRCAT -n boot1
-#        raxml-ng -f b -t ref -z RAxML_bootstrap.boot1 -m GTRCAT -n consensus
-#        """
+rule evaluate_tree:
+    input:
+        msa = fragsize + "msa/best.msa.afa",
+        tree = fragsize + "phylogeny/initial.raxml.support"
+    output: fragsize + "phylogeny/optimized.raxml.bestTree"
+    log: fragsize + "phylogeny/optimized.raxml.bestmodel"
+    params: 
+        outdir = fragsize + "phylogeny",
+        model = config["raxml_model"]
+    shell: 
+        """
+        raxml-ng --evaluate --msa {input} --threads {threads} --model {params.model} --tree {input.tree} --prefix {params.outdir}/optimized --opt-model on --opt-branches on
+        mv {params.outdir}/*log {params.outdir}/logs
+        """
