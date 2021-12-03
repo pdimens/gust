@@ -32,7 +32,8 @@ musclev5_parameters: "-replicates 100"
 # if runtime is important, you may want to reduce replicates
 
 raxml_model: "GTR+G"
-# the phylogenetic model you would like to use
+# the phylogenetic model you would like to use see for options:
+# https://isu-molphyl.github.io/EEOB563/computer_labs/lab4/models.html
 
 raxml_parameters: '--bs-trees 100 --tree pars\{25\},rand\{25\} -brlen scaled'
 # --bs-trees 100 is 100 bootstrapped trees
