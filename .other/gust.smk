@@ -342,12 +342,12 @@ rule evaluate_tree:
         model = fragsize + "phylogeny/optimized.raxml.bestModel",
         final = fragsize + "phylogeny/final.raxml.bestModel"
     message: "Evaluating the best supported tree and optimizing its parameters"
-    threads: 30
     params: 
         outdir = fragsize + "phylogeny",
         model = config["raxml_model"],
         outgroup = config["outgroup"],
         parameters = config["raxml_parameters"]
+    threads: 30
     shell: 
         """
         outgroup=$(basename {params.outgroup} .fasta)
@@ -360,11 +360,4 @@ rule plot_tree:
     input: fragsize + "phylogeny/final.raxml.support"
     output: fragsize + "phylogeny/final.tree.png"
     message: "Plotting the final tree"
-    run:
-        R("""
-        suppressPackageStartupMessages(library(ggtree))
-        pdf(NULL)
-        input <- read.tree("{input}")
-        ggtree(input) + geom_tiplab() + geom_nodelab(size=3, col="dodgerblue")
-        ggsave("{output")
-        """)
+    script: "../tools/plottree.R"
