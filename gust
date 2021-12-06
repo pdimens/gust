@@ -38,15 +38,15 @@ if [[ -z "$2" ]]; then
 #  most of this file is comments, which you can delete  #
 #=======================================================#
 
-fragment_size: 50
+fragment_size: 150
 # size of the sliding window genome fragments
 # values of 50-300+ should be ok (use your judgement)
 # note: bwa isn't good at mapping really long sequences
 
-reference_genome: ""
+reference_genome: "genome.fasta"
 # name of reference genome in the genomes/ dir
 
-outgroup: ""
+outgroup: "outgroupgenome.fasta"
 # name of the outgroup genome in the genomes/ dir
 
 bwa_parameters: "-a -k 19"
@@ -54,21 +54,24 @@ bwa_parameters: "-a -k 19"
 # -k 19 is a kmer size of 19
 
 freebayes_parameters: "-C 1 --min-coverage 5 --standard-filter --ploidy 1"
-# -C 1 means at least 1 sample needs to have alt allele for a site to be kept
+# -C 2 means at least 2 samples need to have alt alleles for a site to be kept
 # --min-coverage 5 means at least 5 aligments to score a site
-# --standard-filter is equivalent to -m 30 -q 20 -R 0 -S 0
+# --standard-filter is to add more stringency
 # --ploidy 1 because these are typically haploid assemblies
 
-window_size: 50000
-sites_per_window: 10
+window_size: 20000
 # window size in base pairs for LD pruning snp data
+# bigger window = fewer snps
+sites_per_window: 10
 # number of sites to keep per window
 
-musclev5_parameters: "-replicates 100"
-# if runtime is important, you may want to reduce replicates
+mafft_parameters: "--auto --maxiterate 1000 --nuc"
+# --auto chooses the appropriate model for the data size
+# --maxiterate is the max number of iterations for tree building
+# --nuc is to specify the input is nucleotides
 
 raxml_model: "GTR+G"
-# the phylogenetic model you would like to use see for options:
+# the phylogenetic model you would like to use, see for options:
 # https://isu-molphyl.github.io/EEOB563/computer_labs/lab4/models.html
 
 raxml_parameters: '--bs-trees 100 --tree pars\{25\},rand\{25\} -brlen scaled'
