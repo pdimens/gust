@@ -116,28 +116,6 @@ rule alignment_list:
         echo {input} | tr " " "\n" > {output}
         """
 
-
-#rule merge_alignments:
-#    input: expand(fragsize + "alignments/{assembly}.bam", assembly = allfastanames)
-#    output:
-#        bamlist= fragsize + "alignments/.bamlist",
-#        bam = fragsize + "alignments/alignments.bam"
-#    message: "Merging all of the alignments of {output.bamlist} into {output.bam}"
-#    threads: 30
-#    params: fragsize
-#    shell:
-#        """
-#        ls {params}alignments/*.bam > {output.bamlist}
-#        samtools merge -@{threads} -b {output.bamlist} -f {output.bam}
-#        """
-#
-#rule index_alignments:
-#    input: fragsize + "alignments/alignments.bam"
-#    output: fragsize + "alignments/alignments.bam.bai"
-#    message: "Indexing {input} with samtools"
-#    threads: 1
-#    shell: "samtools index {input}"
-#
 rule create_popmap:
     input: fragsize + "alignments/alignments.list"
     output: fragsize + "populations.map"
@@ -217,31 +195,26 @@ rule variant_filter_splitmnp:
     params: fragsize
     shell:
         """
-        bcftools norm -m -any -a {input} | bcftools view --types snps > {output}
-        #bcftools norm -m -snps {input} | bcftools view --types snps > {output}
+        #bcftools norm -m -any {input} | bcftools view -m2 -M2 -v snps > {output}
+        vcfallelicprimitives -k -g {input} | bcftools view -m2 -M2 -v snps > {output}
         echo -n "$(basename {output} .bcf),$(bcftools query {output} -f '%DP\n' | wc -l)" >> {params}snp_discovery/variant.stats
         echo ",norm -m -any and --types snps" >> {params}snp_discovery/variant.stats
         """
 
-# needs a way to remove sites with genotyping error where reference genome is not homozygous ref allele for that site
-#1 get sample name order in the bcf file
-#2 get 0-based index of the reference sample
-#3 apply a filter something like this
-# where * is the index of the reference sample, which you want to be homozygous for the reference allele
 rule variant_genotyping_error:
     input: fragsize + "snp_discovery/snps.filt.3.bcf"
     output: fragsize + "snp_discovery/snps.filt.4.bcf"
     message: "Removing sites where the reference genome self-alignment does not have the reference allele (genotyping error)"
     params: 
         refgeno = ref_genome,
-        dir = fragsize
+        outdir = fragsize
     shell:
         """
         refname=$(basename {params.refgeno} .fasta)
         IDX=$(bcftools query -l {input} | awk "/$refname/ {{print NR - 1}}")
         bcftools filter -s GENOERROR -m + -i "'GT[$IDX]="R"'" {input} > {output}
-        echo -n "$(basename {output} .bcf),$(bcftools query {output} -f '%DP\n' | wc -l)" >> {params.dir}snp_discovery/variant.stats
-        echo ",include GT[$IDX]=\"R\"" >> {params.dir}snp_discovery/variant.stats
+        echo -n "$(basename {output} .bcf),$(bcftools query {output} -f '%DP\n' | wc -l)" >> {params.outdir}snp_discovery/variant.stats
+        echo ",include GT[$IDX]=\"R\"" >> {params.outdir}snp_discovery/variant.stats
         """
 
 
@@ -256,12 +229,12 @@ rule variant_filter_LDthinning:
     shell:
         """
         bcftools +prune -w {params.window}bp -n {params.sitesper} -N maxAF {input} > {output}
-        echo -n "$(basename {output} .bcf),$(bcftools query {output} -f '%DP\n' | wc -l)" >> {params.dir}/snp_discovery/variant.stats
-        echo ",+prune -w {params.window}bp -n {params.sitesper} -N maxAF" >> {params.dir}/snp_discovery/variant.stats
+        echo -n "$(basename {output} .bcf),$(bcftools query {output} -f '%DP\n' | wc -l)" >> {params.outdir}/snp_discovery/variant.stats
+        echo ",+prune -w {params.window}bp -n {params.sitesper} -N maxAF" >> {params.outdir}/snp_discovery/variant.stats
         # nicer fixed-width table
-        column -t -s"," {params.dir}/snp_discovery/variant.stats > {params.dir}snp_discovery/.variant.stats \
-        && rm {params.dir}/snp_discovery/variant.stats \
-        && mv {params.dir}/snp_discovery/.variant.stats {params.dir}snp_discovery/variant.stats
+        column -t -s"," {params.outdir}/snp_discovery/variant.stats > {params.outdir}snp_discovery/.variant.stats \
+        && rm {params.outdir}/snp_discovery/variant.stats \
+        && mv {params.outdir}/snp_discovery/.variant.stats {params.outdir}snp_discovery/variant.stats
         """
 
 rule vcf2fasta:
@@ -279,38 +252,19 @@ rule vcf2fasta:
         mv {params.outdir}/filtered.variants.min2.fasta {params.outdir}/filtered.variants.fasta
         """
 
-rule muscle_msa:
+rule mafft_msa:
     input: fragsize + "msa/filtered.variants.fasta"
-    output: fragsize + "msa/variants.diversified.efa"
-    log: fragsize + "msa/variants.diversified.log"
-    message: "Using MUSCLE to perform diversified multiple sequence alignment (MSA). This will likely take several hours."
-    params: config["musclev5_parameters"]
+    output: fragsize + "msa/alignments.msa"
+    message: "Using MAFFT to perform multiple sequence alignment (MSA)."
+    params: config["mafft_parameters"]
     threads: 30
     shell:
         """
-        tools/muscle_v5.0.1428_linux -align {input} -diversified -output {output} -nt -threads {threads} {params}
-        tools/muscle_v5.0.1428_linux -disperse {output} -log {log}
+        mafft {params} --thread {threads} {input} > {output}
         """
 
-rule extract_best_msa:
-    input: fragsize + "msa/variants.diversified.efa"
-    output: fragsize + "msa/best.msa.afa"
-    message: "Extracting best MSA tree"
-    threads: 1
-    shell: "tools/muscle_v5.0.1428_linux -maxcc {input} -output {output}"
-
-#rule resample_msa:
-#    input: fragsize + "msa/variants.diversified.efa"
-#    output: fragsize + "msa/variants.resampled.efa" #afa = fragsize + "msa/variants.resampled.afa"
-#    message: "Resampling diversified MSA ensemble"
-#    shell: 
-#        """
-#        tools/muscle_v5.0.1428_linux -resample {input} -output {output}
-#        tools/muscle_v5.0.1428_linux -efa_explode {output}
-#        """
-
 rule build_tree_raxml:
-    input: fragsize + "msa/best.msa.afa"
+    input: fragsize + "msa/alignments.msa"
     output: 
         bootstraps = fragsize + "phylogeny/initial.raxml.bootstraps",
         bestsupported = fragsize + "phylogeny/initial.raxml.support",
@@ -334,7 +288,7 @@ rule build_tree_raxml:
 
 rule evaluate_tree:
     input:
-        msa = fragsize + "msa/best.msa.afa",
+        msa = fragsize + "msa/alignments.msa",
         tree = fragsize + "phylogeny/initial.raxml.support",
         bootstraps = fragsize + "phylogeny/initial.raxml.bootstraps"
     output: 
