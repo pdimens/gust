@@ -166,6 +166,7 @@ dependencies:
   - logmuse=0.2.6=pyh8c360ce_0
   - lz4-c=1.9.3=h9c3ff4c_1
   - lzo=2.10=h516909a_1000
+  - mafft=7.490=h779adbc_0
   - make=4.3=hd18ef5c_1
   - markupsafe=2.0.1=py39h3811e60_1
   - matplotlib-base=3.5.0=py39h2fa2bec_0
@@ -173,7 +174,6 @@ dependencies:
   - mpi=1.0=openmpi
   - multidict=5.2.0=py39h3811e60_1
   - munkres=1.1.4=pyh9f0ad1d_0
-  - muscle=3.8.1551=h7d875b9_6
   - nbformat=5.1.3=pyhd8ed1ab_0
   - ncurses=6.2=h58526e2_4
   - networkx=2.6.3=pyhd8ed1ab_1
