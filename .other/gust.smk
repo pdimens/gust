@@ -21,9 +21,16 @@ rule all:
         variants = fragsize + "snp_discovery/snps.raw.bcf",
         fitlered_variants = fragsize + "snp_discovery/snps.filt.5.bcf",
         msa_input = fragsize + "msa/filtered.variants.fasta",
-        phylotree = fragsize + "phylogeny/final.raxml.support",
-        plot = fragsize + "phylogeny/final.tree.png"
-    message: "Finished running gust!"
+        phylotree = fragsize + "phylogeny/final.raxml.support"
+    output:
+        svg = fragsize + "phylogeny/final.tree.svg",
+        png = fragsize + "phylogeny/final.tree.png"
+    message: "Finished running gust! Find your phylogenetic tree in {output}"
+    shell:
+        """
+        gotree draw svg -i {input.phylotree} --with-node-labels -w 1000 -H 800 > {output.svg}
+        gotree draw png -i {input.phylotree} --with-node-labels -w 1000 -H 800 > {output.png}
+        """
 
 rule fasta2fastq:
     input:  "genomes/{assembly}.fasta"
@@ -310,9 +317,3 @@ rule evaluate_tree:
         raxml-ng --all --msa {input.msa} --model {output.model} --outgroup $outgroup --prefix {params.outdir}/final --threads {threads} --bs-metric tbe {params.parameters} > /dev/null 2>&1
         mv {params.outdir}/*log {params.outdir}/logs
         """
-
-rule plot_tree:
-    input: fragsize + "phylogeny/final.raxml.support"
-    output: fragsize + "phylogeny/final.tree.png"
-    message: "Plotting the final tree"
-    script: "../tools/plottree.R"
