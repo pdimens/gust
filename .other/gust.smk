@@ -1,10 +1,9 @@
 import os
 import glob
 from pathlib import Path
-configfile: "config.yml"
+
 ref_genome = config["reference_genome"]
 fragsize = str(config["fragment_size"]) + "bp_fragments/"
-
 
 # locate input fasta files
 fastanames = [Path(i).stem for i in (glob.glob("genomes/*.fasta") + glob.glob("genomes/*.fa"))]
