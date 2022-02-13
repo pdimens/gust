@@ -47,7 +47,7 @@ It's minimal, I swear.
     - the genomes should be in the `genomes/` folder
     - use **just** the name, not the full path
     - e.g. `"bostauros.fasta"` ✅  vs `"genomes/bostauros.fasta"` ❌
-3. [optional] If you want, modify software parameters in `config.yml`
+3. [optional] Modify software parameters in `config.yml`
 
 ### Running
 - activate the `gust` environment with `conda activate gust`
