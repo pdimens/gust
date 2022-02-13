@@ -1,5 +1,5 @@
 [![gust logo](.other/gust.svg)](https://github.com/pdimens/gust/blob/main/README.md#installation)
-An easy breezy snp-based whole genome phylogenetic pipeline 🌪️
+An easy breezy whole-genome derived snp-based phylogenetic pipeline 🌪️
 
 ## Installation
 ### Pre-requisites
