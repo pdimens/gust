@@ -1,5 +1,9 @@
 [![gust logo](.other/gust.svg)](https://github.com/pdimens/gust/blob/main/README.md#installation)
-An easy breezy whole-genome derived snp-based phylogenetic pipeline 🌪️
+
+An easy breezy whole-genome derived snp-based phylogenetic pipeline 🌪️ 
+
+[![Cite](https://img.shields.io/badge/Cite-10.5281/zenodo.6077896-e1e1e1?style=for-the-badge)](https://zenodo.org/badge/latestdoi/429576167) 
+
 
 ## Installation
 ### Pre-requisites
